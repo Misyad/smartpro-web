@@ -128,6 +128,39 @@ const CATEGORIES = [
   "Wireless Video",
   "Switcher & Live",
 ] as const;
+
+/**
+ * Tracks whether a horizontal scroller is parked at its right edge, so the
+ * chips fade can switch off once there is nothing left to reveal. Without this
+ * the last chip stays permanently dimmed at the end of the scroll.
+ */
+function useScrollEnd<T extends HTMLElement>() {
+  const ref = useRef<T | null>(null);
+  const [atEnd, setAtEnd] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const update = () => {
+      const remaining = el.scrollWidth - el.clientWidth - el.scrollLeft;
+      setAtEnd(remaining <= 4);
+    };
+
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+
+    return () => {
+      el.removeEventListener("scroll", update);
+      observer.disconnect();
+    };
+  }, []);
+
+  return { ref, atEnd };
+}
+
 const ADD_ONS = [
   {
     id: "cable-20m",
@@ -543,6 +576,7 @@ function BundleCard({
 }
 
 export function SmartProApp() {
+  const chipsScroll = useScrollEnd<HTMLDivElement>();
   const [view, setView] = useState<"catalog" | "admin">("catalog");
   const [adminSection, setAdminSection] = useState("Ringkasan");
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
@@ -1149,7 +1183,11 @@ export function SmartProApp() {
             </section>
 
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-              <div className="chips-scroll scroll-fade scroll-fade-inline flex max-w-full snap-x snap-mandatory gap-2 overflow-x-auto pb-1 text-foreground">
+              <div
+                ref={chipsScroll.ref}
+                data-at-end={chipsScroll.atEnd}
+                className="chips-scroll chips-fade flex max-w-full snap-x snap-mandatory gap-2 overflow-x-auto pb-1"
+              >
                 {CATEGORIES.map((item) => (
                   <Button
                     key={item}

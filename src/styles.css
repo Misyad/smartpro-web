@@ -317,46 +317,67 @@
   text-transform: uppercase;
 }
 
-/* Horizontal scroll affordance: a right-edge fade hints there is more content
- * instead of clipping silently. The fade lives on the wrapper so it stays put
- * while the inner container scrolls. Hidden on lg+ where content fits. */
+/* Horizontal scroll affordance, two variants.
+
+ * 1. .chips-fade -- a mask. The chip row sits directly on the page background
+ *    and its buttons are opaque, so an overlaid gradient would tint the button
+ *    instead of dissolving it. A mask erases the actual pixels, which is the
+ *    only way the fade reads as "content continues" rather than "grey film".
+ * 2. .scroll-fade -- an overlay gradient for table wrappers, which sit on a
+ *    card surface where a gradient blends cleanly. */
 .chips-scroll,
 .table-scroll {
   scrollbar-width: thin;
   scrollbar-color: var(--color-border) transparent;
 }
 
+.chips-fade {
+  --chips-fade-size: 2.25rem;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    #000 calc(100% - var(--chips-fade-size)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    #000 calc(100% - var(--chips-fade-size)),
+    transparent 100%
+  );
+}
+
+/* Once the row is scrolled to its end there is nothing left to reveal, so the
+ * mask would just fade a fully visible chip for no reason. */
+.chips-fade[data-at-end="true"] {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
 .scroll-fade {
   position: relative;
 }
 
-/* color-mix keeps the fade correct in both schemes: mixing the local text
- * colour with transparent yields a low-alpha grey in light mode and a
- * light-alpha grey in dark mode, instead of an opaque white block. */
 .scroll-fade::after {
   content: "";
   position: absolute;
   top: 0;
   right: 0;
   bottom: 0;
-  width: 2.5rem;
+  width: 2rem;
   pointer-events: none;
   background: linear-gradient(
     to right,
     transparent,
-    color-mix(in oklab, currentColor 22%, transparent)
+    color-mix(in oklab, currentColor 18%, transparent)
   );
 }
 
-/* Applied directly to a scroll container: inset the fade so it stays inside
- * the element's own box instead of spilling past its right edge. */
-.scroll-fade-inline::after {
-  right: 0.25rem;
-  width: 2rem;
-  border-radius: inherit;
-}
-
 @media (min-width: 1024px) {
+  /* Roomier viewports fit the content; the affordance would only be noise. */
+  .chips-fade {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
   .scroll-fade::after {
     display: none;
   }
