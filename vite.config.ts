@@ -9,10 +9,15 @@
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
+// Docker/CI builds a standalone Node server (`.output/server/index.mjs`).
+// Everywhere else keeps the default Cloudflare target used by Lovable hosting.
+const nodeServerBuild = process.env.BUILD_TARGET === "node";
+
 export default defineConfig({
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  ...(nodeServerBuild ? { nitro: { preset: "node-server" as const } } : {}),
 });
