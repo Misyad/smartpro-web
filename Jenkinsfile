@@ -23,6 +23,9 @@ pipeline {
     CONTAINER_NAME = 'smartpro-web'
     APP_PORT       = '3050'
     HEALTH_TIMEOUT = '60'
+    // Jenkins runs in a bridge container: 127.0.0.1 is the Jenkins container
+    // itself, not the CT104 host. Probe the host's LAN address instead.
+    DEPLOY_PROBE_HOST = '192.168.1.60'
   }
 
   stages {
@@ -62,6 +65,8 @@ pipeline {
         sh """
           set -e
           docker rm -f ${CONTAINER_NAME}-smoke 2>/dev/null || true
+          # Published on the host loopback only; the probe below runs INSIDE the
+          # smoke container, so 127.0.0.1 there is the container itself -- correct.
           docker run -d --name ${CONTAINER_NAME}-smoke -p 127.0.0.1:${APP_PORT}:${APP_PORT} ${IMAGE}:${IMAGE_TAG}
           for i in \$(seq 1 30); do
             if docker exec ${CONTAINER_NAME}-smoke node -e "fetch('http://127.0.0.1:${APP_PORT}/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then
@@ -115,15 +120,22 @@ pipeline {
             sleep 1
           done
 
-          # 4. Verify the published port answers from the host.
-          code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "http://127.0.0.1:${APP_PORT}/" || echo "000")
+          # 4. Verify the port answers. Jenkins runs in its own bridge container,
+          # so 127.0.0.1 is the Jenkins container itself, not the host -- probe the
+          # host LAN address instead. Exit code is checked separately so a failed
+          # curl cannot append a second "000" to the status code.
+          if ! code=\$(curl -fsS -o /dev/null -w '%{http_code}' --max-time 10 "http://${DEPLOY_PROBE_HOST}:${APP_PORT}/"); then
+            echo "Post-deploy check failed: curl could not reach ${DEPLOY_PROBE_HOST}:${APP_PORT}"
+            docker logs ${CONTAINER_NAME} --tail 50
+            exit 1
+          fi
           if [ "\$code" != "200" ]; then
-            echo "Post-deploy check failed: HTTP \$code on port ${APP_PORT}"
+            echo "Post-deploy check failed: HTTP \$code on ${DEPLOY_PROBE_HOST}:${APP_PORT}"
             docker logs ${CONTAINER_NAME} --tail 50
             exit 1
           fi
 
-          echo "Deploy verified: HTTP \$code on port ${APP_PORT}"
+          echo "Deploy verified: HTTP \$code on ${DEPLOY_PROBE_HOST}:${APP_PORT}"
 
           # 5. Reclaim space from superseded image layers.
           docker image prune -f || true
