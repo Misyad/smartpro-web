@@ -186,6 +186,18 @@
   --shadow-tag: 0 14px 34px -12px oklch(0 0 0 / 45%);
 }
 
+@media (max-width: 640px) {
+  .smartpro-app button,
+  .smartpro-app [role="button"],
+  .smartpro-app [role="switch"],
+  .smartpro-app select,
+  .smartpro-app input[type="checkbox"],
+  .smartpro-app a[href] {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+  }
+}
+
 @layer base {
   * {
     border-color: var(--color-border);
@@ -195,6 +207,22 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-family-sans);
+  }
+
+  a[href],
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"]:not([aria-disabled="true"]),
+  [role="switch"]:not(:disabled),
+  summary,
+  label[for],
+  select:not(:disabled) {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
   }
 }
 
@@ -306,5 +334,50 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .print-hide {
+    display: none !important;
+  }
+
+  #smartpro-quotation-print,
+  #smartpro-quotation-print * {
+    visibility: visible;
+  }
+
+  #smartpro-quotation-print {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    border: 0;
+    box-shadow: none;
+  }
+
+  #smartpro-quotation-print .quote-document {
+    padding: 0;
+  }
+
+  #smartpro-quotation-print .overflow-x-auto {
+    overflow: visible;
+  }
+
+  #smartpro-quotation-print table {
+    min-width: 0;
   }
 }

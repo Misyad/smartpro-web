@@ -20,6 +20,9 @@ dist-ssr
 .wrangler/
 .dev.vars
 
+# Local clone of the antislop rulebook (skills are vendored in .opencode/skills)
+anti-slop/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

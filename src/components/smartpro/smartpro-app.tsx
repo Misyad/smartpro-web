@@ -346,6 +346,7 @@ export function SmartProApp() {
   const [paymentMethod, setPaymentMethod] = useState("QRIS");
   const [paymentScheme, setPaymentScheme] = useState("50");
   const [kycFastPath, setKycFastPath] = useState(false);
+  const [checkoutError, setCheckoutError] = useState("");
   const [signatureReady, setSignatureReady] = useState(false);
   const [kycFields, setKycFields] = useState({ name: "", nik: "", phone: "", instagram: "", address: "", emergency: "" });
   const [kycFiles, setKycFiles] = useState<Record<string, { name: string; preview: string | null }>>({});
@@ -562,11 +563,20 @@ export function SmartProApp() {
 
   const nextCheckoutStep = () => {
     if (checkoutStep === 2 && !kycFastPath) {
-      const requiredValues = Object.values(kycFields).every(Boolean);
-      if (!requiredValues || kycFields.nik.length !== 16 || !signatureReady || Object.keys(kycFiles).length < 3) {
-        return notify("Lengkapi data KYC, unggah 3 dokumen, dan bubuhkan tanda tangan.");
+      const missingFields = Object.entries(kycFields).filter(([, value]) => !value).map(([key]) => key);
+      const problems: string[] = [];
+      if (missingFields.length) problems.push("Lengkapi seluruh data penyewa");
+      if (kycFields.nik.length !== 16) problems.push("NIK harus 16 digit");
+      if (Object.keys(kycFiles).length < 3) problems.push("Unggah 3 dokumen verifikasi");
+      if (!signatureReady) problems.push("Bubuhkan tanda tangan digital");
+      if (problems.length) {
+        const message = `Belum lengkap: ${problems.join(", ")}.`;
+        setCheckoutError(message);
+        notify(message);
+        return;
       }
     }
+    setCheckoutError("");
     if (checkoutStep === 3) return finishBooking();
     setCheckoutStep((step) => Math.min(4, step + 1));
   };
@@ -616,9 +626,9 @@ export function SmartProApp() {
   const checkoutWhatsapp = `https://wa.me/?text=${encodeURIComponent(`Halo SMartPro, booking saya ${checkoutCode}. Mohon konfirmasi pengambilan.`)}`;
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="smartpro-app min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-40 border-b border-border/80 bg-card/95 backdrop-blur">
-        <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex min-w-fit items-center gap-2.5">
             <BrandMark className="size-10" />
             <div>
@@ -654,7 +664,7 @@ export function SmartProApp() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1400px] px-4 pb-16 pt-7 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-7xl px-4 pb-16 pt-7 sm:px-6 lg:px-8">
         {view === "catalog" ? (
           <>
             <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
@@ -691,7 +701,7 @@ export function SmartProApp() {
                 <span className="grid size-9 place-items-center rounded-full bg-surface-soft text-gold-ink"><CalendarDays className="size-4" /></span>
                 <div>
                   <p className="wordmark text-sm font-semibold">{days}× 24 JAM</p>
-                  <p className="text-[10px] text-muted-foreground">{formatDate(startDate)} — {formatDate(endDate)}</p>
+                  <p className="text-[10px] text-muted-foreground">{formatDate(startDate)} s/d {formatDate(endDate)}</p>
                 </div>
                 {freeDays > 0 && <Badge className="ml-auto border-gold/30 bg-amber-soft text-amber hover:bg-amber-soft">Sewa {days} Gratis {freeDays}</Badge>}
               </div>
@@ -922,7 +932,7 @@ export function SmartProApp() {
       </main>
 
       <footer className="border-t border-border bg-card">
-        <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-3 px-4 py-5 text-[10px] text-muted-foreground sm:px-6 lg:px-8"><span className="wordmark font-semibold text-foreground">SMartPro · Audio Video Production</span><span>Simulasi antarmuka · data tersimpan selama sesi ini</span></div>
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-5 text-[10px] text-muted-foreground sm:px-6 lg:px-8"><span className="wordmark font-semibold text-foreground">SMartPro · Audio Video Production</span><span>Simulasi antarmuka · data tersimpan selama sesi ini</span></div>
       </footer>
 
       {notice && <div role="status" aria-live="polite" className="fixed bottom-5 left-1/2 z-[100] flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 border border-border bg-card px-4 py-3 text-xs font-semibold shadow-tag"><CheckCircle2 className="size-4 shrink-0 text-success" />{notice}</div>}
@@ -931,7 +941,7 @@ export function SmartProApp() {
         <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-lg">
           <SheetHeader className="border-b border-border px-5 py-5 text-left">
             <SheetTitle className="wordmark text-sm">Tas Sewa</SheetTitle>
-            <SheetDescription className="text-xs">{cartCount} unit · {days}× 24 jam · {formatDate(startDate)} — {formatDate(endDate)}</SheetDescription>
+            <SheetDescription className="text-xs">{cartCount} unit · {days}× 24 jam · {formatDate(startDate)} s/d {formatDate(endDate)}</SheetDescription>
           </SheetHeader>
           <div className="smartpro-drawer-scroll flex-1 overflow-y-auto px-5 py-4">
             {cart.length ? <div className="space-y-3">{cart.map((line) => <div key={line.key} className="flex items-start gap-3 border-b border-border pb-3"><span className="grid size-10 shrink-0 place-items-center rounded-full bg-surface-soft text-gold-ink">{line.kind === "bundle" ? <PackageCheck className="size-4" /> : line.kind === "addon" ? <Sparkles className="size-4" /> : <Video className="size-4" />}</span><div className="min-w-0 flex-1"><p className="text-xs font-semibold">{line.name}</p><p className="mt-1 text-[10px] text-muted-foreground">{line.details ?? `${formatRupiah(line.price)} / 24 jam`}</p><p className="mt-1 text-[10px] text-muted-foreground">{formatRupiah(line.price)} × {line.quantity} × {days} hari</p></div><div className="flex items-center gap-1"><Button variant="ghost" size="icon" className="size-7" onClick={() => updateLine(line.key, -1)} aria-label={`Kurangi ${line.name}`}>−</Button><span className="min-w-4 text-center text-xs font-semibold">{line.quantity}</span><Button variant="ghost" size="icon" className="size-7" onClick={() => updateLine(line.key, 1)} aria-label={`Tambah ${line.name}`}><Plus className="size-3.5" /></Button></div></div>)}</div> : <div className="border border-dashed border-border px-4 py-8 text-center"><ShoppingBag className="mx-auto size-6 text-muted-foreground" /><p className="mt-3 text-xs font-semibold">Tas sewa masih kosong</p><p className="mt-1 text-[10px] text-muted-foreground">Pilih perangkat atau paket untuk mulai.</p></div>}
@@ -966,13 +976,13 @@ export function SmartProApp() {
             </div>
             <div className="border-y-2 border-primary py-5">
               <div className="flex items-start justify-between gap-5"><div className="flex items-center gap-3"><BrandMark className="size-12" /><div><p className="wordmark text-xs font-bold">SMartPro</p><p className="mt-1 text-[10px] text-muted-foreground">Audio Video Production · Jakarta</p></div></div><div className="text-right"><p className="wordmark text-[10px] font-semibold">SURAT PENAWARAN</p><p className="mt-1 text-[10px] text-muted-foreground">QT/SMP/2026/11/001</p></div></div>
-              <div className="mt-5 grid grid-cols-2 gap-4 text-[10px]"><p><span className="text-muted-foreground">Kepada</span><br /><strong>{quoteFields.client || "Nama Klien"}</strong><br />{quoteFields.pic || "PIC / Kontak"}</p><p><span className="text-muted-foreground">Proyek & tanggal</span><br /><strong>{quoteFields.project || "Nama Proyek"}</strong><br />{formatDate(startDate)} — {formatDate(endDate)} · {days}× 24 jam</p></div>
+              <div className="mt-5 grid grid-cols-2 gap-4 text-[10px]"><p><span className="text-muted-foreground">Kepada</span><br /><strong>{quoteFields.client || "Nama Klien"}</strong><br />{quoteFields.pic || "PIC / Kontak"}</p><p><span className="text-muted-foreground">Proyek & tanggal</span><br /><strong>{quoteFields.project || "Nama Proyek"}</strong><br />{formatDate(startDate)} s/d {formatDate(endDate)} · {days}× 24 jam</p></div>
             </div>
             <div className="my-5 overflow-x-auto"><table className="w-full min-w-[430px] text-left text-[10px]"><thead className="border-b border-border text-muted-foreground"><tr><th className="py-2">Deskripsi</th><th className="py-2 text-center">Qty</th><th className="py-2 text-right">Tarif / hari</th><th className="py-2 text-right">Jumlah</th></tr></thead><tbody>{pricing.lineDetails.map(({ line, breakdown }) => <tr key={line.key} className="border-b border-border/60"><td className="py-2.5 font-semibold">{line.name}</td><td className="py-2.5 text-center">{line.quantity} × {days} hari</td><td className="py-2.5 text-right">{formatRupiah(line.price)}</td><td className="py-2.5 text-right">{formatRupiah(breakdown.total)}</td></tr>)}</tbody></table></div>
             <div className="ml-auto max-w-xs space-y-1 text-[10px]"><PriceLine label="Subtotal sewa" amount={pricing.base} /><PriceLine label="Diskon promo & tier" amount={-(pricing.promo + pricing.vipDiscount)} discount /><PriceLine label="Poin & pengantaran" amount={pricing.deliveryFee - pricing.pointsDiscount} /><div className="flex justify-between border-t border-primary pt-2 text-sm font-bold"><span>Total penawaran</span><span>{formatRupiah(pricing.total)}</span></div></div>
             <div className="mt-7 border-t border-border pt-4 text-[9px] text-muted-foreground"><p>Penawaran ini merupakan estimasi untuk masa sewa yang tercantum dan ketersediaan unit pada saat konfirmasi.</p><p className="mt-1">SMartPro Audio Video Production · Terima kasih atas kepercayaan Anda.</p></div>
           </div>
-          <DialogFooter className="print-hide border-t border-border bg-surface-soft px-5 py-4 sm:justify-between"><Button variant="outline" onClick={async () => { const summary = `RAB ${quoteFields.project || "SMartPro"} · ${formatDate(startDate)}–${formatDate(endDate)} · Total ${formatRupiah(pricing.total)}`; try { await navigator.clipboard.writeText(summary); notify("Ringkasan RAB disalin."); } catch { notify(summary); } }}><Copy className="size-4" /> Salin ringkasan RAB</Button><Button onClick={() => window.print()}><Printer className="size-4" /> Cetak / Simpan PDF</Button></DialogFooter>
+          <DialogFooter className="print-hide border-t border-border bg-surface-soft px-5 py-4 sm:justify-between"><Button variant="outline" onClick={async () => { const summary = `RAB ${quoteFields.project || "SMartPro"} · ${formatDate(startDate)} s/d ${formatDate(endDate)} · Total ${formatRupiah(pricing.total)}`; try { await navigator.clipboard.writeText(summary); notify("Ringkasan RAB disalin."); } catch { notify(summary); } }}><Copy className="size-4" /> Salin ringkasan RAB</Button><Button onClick={() => window.print()}><Printer className="size-4" /> Cetak / Simpan PDF</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -1025,11 +1035,12 @@ export function SmartProApp() {
               <div><p className="mb-2 text-xs font-semibold">Dokumen verifikasi</p><div className="grid gap-2 sm:grid-cols-3">{[["ktp", "e-KTP"], ["secondary", "Identitas kedua"], ["selfie", "Selfie dengan KTP"]].map(([key, label]) => <label key={key} className="cursor-pointer border border-dashed border-border bg-surface-soft p-3 text-center"><input className="sr-only" type="file" accept="image/*" onChange={(event) => handleKycFile(key, event.target.files?.[0])} /><span className="mx-auto grid size-8 place-items-center rounded-full bg-card text-gold-ink">{kycFiles[key]?.preview ? <Check className="size-4" /> : <ImagePlus className="size-4" />}</span><span className="mt-2 block text-[10px] font-semibold">{label}</span><span className="mt-1 block truncate text-[9px] text-muted-foreground">{kycFiles[key]?.name ?? "Pilih foto"}</span>{kycFiles[key]?.preview && <img src={kycFiles[key]?.preview ?? ""} alt={`Pratinjau ${label}`} className="mx-auto mt-2 h-16 w-full object-cover" />}</label>)}</div></div>
               <div><p className="mb-2 text-xs font-semibold">Tanda tangan digital</p><SignaturePad onChange={setSignatureReady} /></div>
             </>}
+            {checkoutError && <p role="alert" aria-live="assertive" className="flex items-start gap-2 border border-alert/30 bg-alert-soft p-3 text-[11px] font-semibold text-alert"><CircleAlert className="mt-0.5 size-3.5 shrink-0" />{checkoutError}</p>}
           </div>}
 
-          {checkoutStep === 3 && <div className="space-y-4"><div><p className="text-xs font-semibold">Skema pembayaran</p><div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">{(tier === "vip" ? ["30", "50", "100"] : ["50", "100"]).map((amount) => <Button key={amount} variant={paymentScheme === amount ? "default" : "outline"} size="sm" className="h-auto flex-col py-3" onClick={() => setPaymentScheme(amount)}><span className="wordmark text-xs">{amount}%</span><span className="mt-1 text-[9px] font-normal">{amount === "100" ? "Lunas" : `DP ${amount}%`}</span></Button>)}</div>{tier === "vip" && <p className="mt-2 text-[10px] text-gold-ink">Partner VIP mendapat pilihan DP 30%.</p>}</div><div><p className="mb-2 text-xs font-semibold">Metode pembayaran</p><div className="grid grid-cols-2 gap-2">{["QRIS", "BCA Transfer"].map((method) => <ChoiceCard key={method} selected={paymentMethod === method} icon={method === "QRIS" ? QrCode : CreditCard} title={method} subtitle={method === "QRIS" ? "Kode pembayaran" : "Transfer bank"} onClick={() => setPaymentMethod(method)} /></div></div><div className="border border-border bg-surface-soft p-4"><div className="flex justify-between text-xs"><span className="text-muted-foreground">Total estimasi</span><strong>{formatRupiah(pricing.total)}</strong></div><div className="mt-2 flex justify-between text-xs"><span className="text-muted-foreground">Pembayaran awal · {paymentScheme}%</span><strong className="wordmark">{formatRupiah(Math.ceil(pricing.total * Number(paymentScheme) / 100))}</strong></div><p className="mt-2 text-[9px] text-muted-foreground">Skema dan rincian pembayaran akan dikonfirmasi tim sebelum transaksi.</p></div></div>}
+          {checkoutStep === 3 && <div className="space-y-4"><div><p className="text-xs font-semibold">Skema pembayaran</p><div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">{(tier === "vip" ? ["30", "50", "100"] : ["50", "100"]).map((amount) => <Button key={amount} variant={paymentScheme === amount ? "default" : "outline"} size="sm" className="h-auto flex-col py-3" onClick={() => setPaymentScheme(amount)}><span className="wordmark text-xs">{amount}%</span><span className="mt-1 text-[9px] font-normal">{amount === "100" ? "Lunas" : `DP ${amount}%`}</span></Button>)}</div>{tier === "vip" && <p className="mt-2 text-[10px] text-gold-ink">Partner VIP mendapat pilihan DP 30%.</p>}</div><div><p className="mb-2 text-xs font-semibold">Metode pembayaran</p><div className="grid grid-cols-2 gap-2">{["QRIS", "BCA Transfer"].map((method) => <ChoiceCard key={method} selected={paymentMethod === method} icon={method === "QRIS" ? QrCode : CreditCard} title={method} subtitle={method === "QRIS" ? "Kode pembayaran" : "Transfer bank"} onClick={() => setPaymentMethod(method)} />)}</div></div><div className="border border-border bg-surface-soft p-4"><div className="flex justify-between text-xs"><span className="text-muted-foreground">Total estimasi</span><strong>{formatRupiah(pricing.total)}</strong></div><div className="mt-2 flex justify-between text-xs"><span className="text-muted-foreground">Pembayaran awal · {paymentScheme}%</span><strong className="wordmark">{formatRupiah(Math.ceil(pricing.total * Number(paymentScheme) / 100))}</strong></div><p className="mt-2 text-[9px] text-muted-foreground">Skema dan rincian pembayaran akan dikonfirmasi tim sebelum transaksi.</p></div></div>}
 
-          {checkoutStep === 4 && <div className="py-2 text-center"><span className="mx-auto grid size-14 place-items-center rounded-full bg-success-soft text-success"><CheckCircle2 className="size-7" /></span><p className="section-label mt-4">Booking berhasil dibuat</p><p className="wordmark mt-2 text-lg font-semibold">{checkoutCode}</p><p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-muted-foreground">Tim SMartPro akan menghubungi Anda untuk konfirmasi unit, dokumen, dan pembayaran.</p><div className="mx-auto mt-5 max-w-sm border border-border bg-surface-soft p-3 text-left text-[10px]"><p><span className="text-muted-foreground">Masa sewa</span> · {formatDate(startDate)} — {formatDate(endDate)}</p><p className="mt-1"><span className="text-muted-foreground">Metode</span> · {pickupMode === "studio" ? "Ambil di studio" : "Kurir pengantaran"} · {paymentMethod} · DP {paymentScheme}%</p></div><div className="mt-5 flex flex-wrap justify-center gap-2"><Button asChild><a href={checkoutWhatsapp} target="_blank" rel="noreferrer"><Instagram className="size-4" /> Konfirmasi via WhatsApp</a></Button><Button variant="outline" onClick={() => { setCheckoutOpen(false); setView("admin"); setAdminSection("Jadwal"); }}>Lihat di Dashboard Admin</Button></div></div>}
+          {checkoutStep === 4 && <div className="py-2 text-center"><span className="mx-auto grid size-14 place-items-center rounded-full bg-success-soft text-success"><CheckCircle2 className="size-7" /></span><p className="section-label mt-4">Booking berhasil dibuat</p><p className="wordmark mt-2 text-lg font-semibold">{checkoutCode}</p><p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-muted-foreground">Tim SMartPro akan menghubungi Anda untuk konfirmasi unit, dokumen, dan pembayaran.</p><div className="mx-auto mt-5 max-w-sm border border-border bg-surface-soft p-3 text-left text-[10px]"><p><span className="text-muted-foreground">Masa sewa</span> · {formatDate(startDate)} s/d {formatDate(endDate)}</p><p className="mt-1"><span className="text-muted-foreground">Metode</span> · {pickupMode === "studio" ? "Ambil di studio" : "Kurir pengantaran"} · {paymentMethod} · DP {paymentScheme}%</p></div><div className="mt-5 flex flex-wrap justify-center gap-2"><Button asChild><a href={checkoutWhatsapp} target="_blank" rel="noreferrer"><Instagram className="size-4" /> Konfirmasi via WhatsApp</a></Button><Button variant="outline" onClick={() => { setCheckoutOpen(false); setView("admin"); setAdminSection("Jadwal"); }}>Lihat di Dashboard Admin</Button></div></div>}
 
           {checkoutStep < 4 && <DialogFooter className="gap-2 sm:justify-between"><Button variant="outline" onClick={() => checkoutStep === 1 ? setCheckoutOpen(false) : setCheckoutStep((step) => step - 1)}><ArrowLeft className="size-4" /> {checkoutStep === 1 ? "Kembali ke tas" : "Sebelumnya"}</Button><Button onClick={nextCheckoutStep}>{checkoutStep === 3 ? "Buat Booking" : "Lanjutkan"} <ArrowRight className="size-4" /></Button></DialogFooter>}
           {checkoutStep === 4 && <DialogFooter className="print-hide"><Button variant="outline" onClick={() => setCheckoutOpen(false)}>Selesai</Button></DialogFooter>}

@@ -32,3 +32,7 @@ use the editor.
 ## Project architecture
 
 - Keep the SMartPro rental experience frontend-only, using seeded in-memory React state and pure rules so its demo workflows require no Cloud or external services.
+
+## UI and copy rules
+
+- For any UI or copywriting work, read `design.md` for the design direction, then apply the `antislop` skill as a filter so the output does not drift into generic AI-slop patterns. Load `antislop-ui`, `antislop-copywriting`, `antislop-human`, or `antislop-layoutmobile` when the task touches those areas.
