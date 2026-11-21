@@ -1,4 +1,7 @@
 // Declarative pipeline: test, build a Docker image, smoke-test it, then push and deploy.
+// Install, lint, and test run inside a container so the pipeline does not depend on
+// tools installed on the Jenkins agent itself.
+//
 // Configure these as Jenkins credentials / global env or edit the defaults below:
 //   DOCKER_REGISTRY   e.g. docker.io/youruser  (or a private registry host)
 //   IMAGE_NAME        e.g. smartpro-web
@@ -23,6 +26,7 @@ pipeline {
     CONTAINER_NAME    = 'smartpro-web'
     APP_PORT          = '3050'
     REGISTRY_CRED_ID  = "${env.REGISTRY_CRED_ID ?: 'docker-registry-credentials'}"
+    BUILD_IMAGE       = 'oven/bun:1'
   }
 
   stages {
@@ -32,30 +36,19 @@ pipeline {
       }
     }
 
-    stage('Install') {
-      steps {
-        // Use bun when available (matches bun.lock); fall back to npm.
-        sh '''
-          if command -v bun >/dev/null 2>&1; then
-            bun install --frozen-lockfile
-          else
-            npm install --no-audit --no-fund
-          fi
-        '''
-      }
-    }
-
     stage('Lint & Test') {
       steps {
-        sh '''
-          if command -v bun >/dev/null 2>&1; then
-            bun run lint
-            bun run test
-          else
-            npm run lint
-            npm run test
-          fi
-        '''
+        // Run inside a container: the host Node on this agent is broken (missing libatomic).
+        // Run as the workspace owner so generated files stay removable by cleanWs().
+        sh """
+          docker run --rm \
+            --user "\$(id -u):\$(id -g)" \
+            -e HOME=/tmp \
+            -v "\$WORKSPACE":/app \
+            -w /app \
+            ${BUILD_IMAGE} \
+            sh -lc 'bun install --frozen-lockfile && bun run lint && bun run test'
+        """
       }
       post {
         always {
@@ -118,17 +111,19 @@ pipeline {
         }
       }
       steps {
-        sshagent(credentials: [env.DEPLOY_CRED_ID]) {
-          sh '''
-            ssh -o StrictHostKeyChecking=accept-new "${DEPLOY_HOST}" "
-              echo '$REG_PASS' | docker login '${DOCKER_REGISTRY%%/*}' -u '$REG_USER' --password-stdin &&
-              docker pull '${IMAGE}:${IMAGE_TAG}' &&
-              docker rm -f '${CONTAINER_NAME}' 2>/dev/null || true
-              docker run -d --name '${CONTAINER_NAME}' --restart unless-stopped \
-                -p '${APP_PORT}:${APP_PORT}' '${IMAGE}:${IMAGE_TAG}' &&
-              docker image prune -f
-            "
-          '''
+        withCredentials([usernamePassword(credentialsId: env.REGISTRY_CRED_ID, usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS')]) {
+          sshagent(credentials: [env.DEPLOY_CRED_ID]) {
+            sh '''
+              ssh -o StrictHostKeyChecking=accept-new "${DEPLOY_HOST}" "
+                echo '$REG_PASS' | docker login '${DOCKER_REGISTRY%%/*}' -u '$REG_USER' --password-stdin &&
+                docker pull '${IMAGE}:${IMAGE_TAG}' &&
+                docker rm -f '${CONTAINER_NAME}' 2>/dev/null || true
+                docker run -d --name '${CONTAINER_NAME}' --restart unless-stopped \
+                  -p '${APP_PORT}:${APP_PORT}' '${IMAGE}:${IMAGE_TAG}' &&
+                docker image prune -f
+              "
+            '''
+          }
         }
       }
     }
