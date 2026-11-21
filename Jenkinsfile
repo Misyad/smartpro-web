@@ -1,13 +1,11 @@
-// Declarative pipeline: test, build a Docker image, smoke-test it, then push and deploy.
-// Lint, tests, and the production build all run inside Docker, so the pipeline does not
-// depend on tools installed on the Jenkins agent or on host/container path mounts.
+// Declarative pipeline for smartpro-web.
 //
-// Configure these as Jenkins credentials / global env or edit the defaults below:
-//   DOCKER_REGISTRY   e.g. docker.io/youruser  (or a private registry host)
-//   IMAGE_NAME        e.g. smartpro-web
-//   REGISTRY_CRED_ID  Jenkins credentials id for docker login (username/password)
-//   DEPLOY_HOST       target ssh host for docker deploy (optional)
-//   DEPLOY_CRED_ID    Jenkins ssh credentials id for DEPLOY_HOST (optional)
+// Jenkins runs on CT104 (192.168.1.60) — the SAME host that serves the app, so this
+// pipeline deploys locally: no container registry, no SSH hop, no DEPLOY_HOST.
+// Cloudflare Tunnel maps smartpro-web.projecthasan.com -> http://192.168.1.60:3050.
+//
+// Lint, tests and the production build all run inside Docker (see Dockerfile targets),
+// so the pipeline does not depend on tools installed on the Jenkins agent.
 
 pipeline {
   agent any
@@ -19,13 +17,12 @@ pipeline {
   }
 
   environment {
-    IMAGE_NAME        = "${env.IMAGE_NAME ?: 'smartpro-web'}"
-    DOCKER_REGISTRY   = "${env.DOCKER_REGISTRY ?: 'docker.io/youruser'}"
-    IMAGE_TAG         = "${env.BUILD_NUMBER}"
-    IMAGE             = "${DOCKER_REGISTRY}/${IMAGE_NAME}"
-    CONTAINER_NAME    = 'smartpro-web'
-    APP_PORT          = '3050'
-    REGISTRY_CRED_ID  = "${env.REGISTRY_CRED_ID ?: 'docker-registry-credentials'}"
+    IMAGE_NAME     = 'smartpro-web'
+    IMAGE          = "youruser/${IMAGE_NAME}"
+    IMAGE_TAG      = "${env.BUILD_NUMBER}"
+    CONTAINER_NAME = 'smartpro-web'
+    APP_PORT       = '3050'
+    HEALTH_TIMEOUT = '60'
   }
 
   stages {
@@ -37,8 +34,6 @@ pipeline {
 
     stage('Lint & Test') {
       steps {
-        // Run lint and tests inside the Docker build (the source travels as build context),
-        // which avoids host/container path mismatch and any tools missing on the agent.
         sh """
           docker build \
             --target test \
@@ -67,12 +62,12 @@ pipeline {
         sh """
           set -e
           docker rm -f ${CONTAINER_NAME}-smoke 2>/dev/null || true
-          docker run -d --name ${CONTAINER_NAME}-smoke -p ${APP_PORT}:${APP_PORT} ${IMAGE}:${IMAGE_TAG}
+          docker run -d --name ${CONTAINER_NAME}-smoke -p 127.0.0.1:${APP_PORT}:${APP_PORT} ${IMAGE}:${IMAGE_TAG}
           for i in \$(seq 1 30); do
             if docker exec ${CONTAINER_NAME}-smoke node -e "fetch('http://127.0.0.1:${APP_PORT}/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then
               echo "Smoke test passed"; break
             fi
-            if [ "\$i" = "30" ]; then echo "Smoke test failed"; docker logs ${CONTAINER_NAME}-smoke; exit 1; fi
+            if [ "\$i" = "30" ]; then echo "Smoke test failed"; docker logs ${CONTAINER_NAME}-smoke; docker rm -f ${CONTAINER_NAME}-smoke; exit 1; fi
             sleep 2
           done
           docker rm -f ${CONTAINER_NAME}-smoke
@@ -80,53 +75,69 @@ pipeline {
       }
     }
 
-    stage('Push Image') {
-      when { anyOf { branch 'main'; branch 'master' } }
-      steps {
-        withCredentials([usernamePassword(credentialsId: env.REGISTRY_CRED_ID, usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS')]) {
-          sh '''
-            echo "$REG_PASS" | docker login "${DOCKER_REGISTRY%%/*}" -u "$REG_USER" --password-stdin
-            docker push "${IMAGE}:${IMAGE_TAG}"
-            docker push "${IMAGE}:latest"
-            docker logout "${DOCKER_REGISTRY%%/*}" || true
-          '''
-        }
-      }
-    }
-
+    // Deploy runs on every build: Jenkins and the app share the CT104 host.
+    // The old container is stopped FIRST so the port is free (no bind race),
+    // then the new one starts and must pass its Docker HEALTHCHECK before we
+    // declare success. A failed deploy fails the build — no false "Deployed" echo.
     stage('Deploy') {
-      when {
-        allOf {
-          anyOf { branch 'main'; branch 'master' }
-          expression { env.DEPLOY_HOST?.trim() }
-          expression { env.DEPLOY_CRED_ID?.trim() }
-        }
-      }
       steps {
-        withCredentials([usernamePassword(credentialsId: env.REGISTRY_CRED_ID, usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS')]) {
-          sshagent(credentials: [env.DEPLOY_CRED_ID]) {
-            sh '''
-              ssh -o StrictHostKeyChecking=accept-new "${DEPLOY_HOST}" "
-                echo '$REG_PASS' | docker login '${DOCKER_REGISTRY%%/*}' -u '$REG_USER' --password-stdin &&
-                docker pull '${IMAGE}:${IMAGE_TAG}' &&
-                docker rm -f '${CONTAINER_NAME}' 2>/dev/null || true
-                docker run -d --name '${CONTAINER_NAME}' --restart unless-stopped \
-                  -p '${APP_PORT}:${APP_PORT}' '${IMAGE}:${IMAGE_TAG}' &&
-                docker image prune -f
-              "
-            '''
-          }
-        }
+        sh """
+          set -eu
+          echo "Deploying ${IMAGE}:${IMAGE_TAG} on port ${APP_PORT}"
+
+          # 1. Stop and remove the running container to free the port.
+          docker rm -f ${CONTAINER_NAME} 2>/dev/null || true
+
+          # 2. Start the newly built image.
+          docker run -d --name ${CONTAINER_NAME} \
+            --restart unless-stopped \
+            -p ${APP_PORT}:${APP_PORT} \
+            ${IMAGE}:${IMAGE_TAG}
+
+          # 3. Wait for the container to become healthy.
+          echo "Waiting up to ${HEALTH_TIMEOUT}s for container health..."
+          for i in \$(seq 1 ${HEALTH_TIMEOUT}); do
+            status=\$(docker inspect --format '{{.State.Health.Status}}' ${CONTAINER_NAME} 2>/dev/null || echo "unknown")
+            if [ "\$status" = "healthy" ]; then
+              echo "Container healthy after \${i}s"
+              break
+            fi
+            if [ "\$status" = "unhealthy" ]; then
+              echo "Container became unhealthy"
+              docker logs ${CONTAINER_NAME} --tail 50
+              exit 1
+            fi
+            if [ "\$i" = "${HEALTH_TIMEOUT}" ]; then
+              echo "Container did not become healthy within ${HEALTH_TIMEOUT}s"
+              docker logs ${CONTAINER_NAME} --tail 50
+              exit 1
+            fi
+            sleep 1
+          done
+
+          # 4. Verify the published port answers from the host.
+          code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "http://127.0.0.1:${APP_PORT}/" || echo "000")
+          if [ "\$code" != "200" ]; then
+            echo "Post-deploy check failed: HTTP \$code on port ${APP_PORT}"
+            docker logs ${CONTAINER_NAME} --tail 50
+            exit 1
+          fi
+
+          echo "Deploy verified: HTTP \$code on port ${APP_PORT}"
+
+          # 5. Reclaim space from superseded image layers.
+          docker image prune -f || true
+        """
       }
     }
   }
 
   post {
     success {
-      echo "Deployed ${IMAGE}:${IMAGE_TAG}"
+      echo "Build #${env.BUILD_NUMBER} deployed ${IMAGE}:${IMAGE_TAG} to port ${APP_PORT} (verified healthy)"
     }
     failure {
-      echo "Pipeline failed for ${IMAGE}:${IMAGE_TAG}"
+      echo "Build #${env.BUILD_NUMBER} FAILED — container may be down, check the Deploy stage log"
     }
     always {
       cleanWs()
