@@ -80,10 +80,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "SMartPro Audio Video Production" },
-      { name: "description", content: "Katalog rental kamera, wireless video, dan perangkat live production SMartPro." },
+      {
+        name: "description",
+        content: "Katalog rental kamera, wireless video, dan perangkat live production SMartPro.",
+      },
       { name: "author", content: "SMartPro Audio Video Production" },
       { property: "og:title", content: "SMartPro Audio Video Production" },
-      { property: "og:description", content: "Katalog rental kamera, wireless video, dan perangkat live production SMartPro." },
+      {
+        property: "og:description",
+        content: "Katalog rental kamera, wireless video, dan perangkat live production SMartPro.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],

@@ -29,14 +29,29 @@ export function BrandMark({ className = "" }: { className?: string }) {
       </defs>
       <path d="M24 1 47 24 24 47 1 24 24 1Z" fill="url(#sp-gold)" />
       <path d="M24 7 41 24 24 41 7 24 24 7Z" fill="none" stroke="var(--card)" strokeOpacity=".72" />
-      <text x="24" y="29" textAnchor="middle" fill="var(--foreground)" fontFamily="var(--font-family-display)" fontSize="12" fontWeight="700">SP</text>
+      <text
+        x="24"
+        y="29"
+        textAnchor="middle"
+        fill="var(--foreground)"
+        fontFamily="var(--font-family-display)"
+        fontSize="12"
+        fontWeight="700"
+      >
+        SP
+      </text>
     </svg>
   );
 }
 
 export function ProductArt({ art, name }: { art: Product["art"]; name: string }) {
   return (
-    <svg className="product-illustration" viewBox="0 0 240 170" role="img" aria-label={`Ilustrasi ${name}`}>
+    <svg
+      className="product-illustration"
+      viewBox="0 0 240 170"
+      role="img"
+      aria-label={`Ilustrasi ${name}`}
+    >
       {art === "wireless" && (
         <g stroke="var(--foreground)" strokeWidth="3" strokeLinejoin="round">
           <rect x="38" y="43" width="70" height="88" rx="10" fill="var(--foreground)" />
@@ -52,7 +67,10 @@ export function ProductArt({ art, name }: { art: Product["art"]; name: string })
       )}
       {art === "camera" && (
         <g stroke="var(--foreground)" strokeWidth="3" strokeLinejoin="round">
-          <path d="M41 64h32l11-14h41l12 14h49a12 12 0 0 1 12 12v48a12 12 0 0 1-12 12H41a12 12 0 0 1-12-12V76a12 12 0 0 1 12-12Z" fill="var(--foreground)" />
+          <path
+            d="M41 64h32l11-14h41l12 14h49a12 12 0 0 1 12 12v48a12 12 0 0 1-12 12H41a12 12 0 0 1-12-12V76a12 12 0 0 1 12-12Z"
+            fill="var(--foreground)"
+          />
           <circle cx="119" cy="99" r="29" fill="var(--stage)" />
           <circle cx="119" cy="99" r="18" fill="var(--foreground)" />
           <circle cx="119" cy="99" r="8" fill="var(--gold)" stroke="none" />
@@ -75,7 +93,10 @@ export function ProductArt({ art, name }: { art: Product["art"]; name: string })
         <g stroke="var(--foreground)" strokeWidth="3" strokeLinejoin="round">
           <rect x="77" y="105" width="86" height="27" rx="8" fill="var(--foreground)" />
           <path d="M120 104V85" strokeWidth="8" />
-          <path d="M75 58c0-12 10-22 22-22h46c12 0 22 10 22 22v25c0 12-10 22-22 22H97c-12 0-22-10-22-22V58Z" fill="var(--card)" />
+          <path
+            d="M75 58c0-12 10-22 22-22h46c12 0 22 10 22 22v25c0 12-10 22-22 22H97c-12 0-22-10-22-22V58Z"
+            fill="var(--card)"
+          />
           <circle cx="120" cy="70" r="21" fill="var(--foreground)" />
           <circle cx="120" cy="70" r="10" fill="var(--gold)" stroke="none" />
           <path d="M85 50h48" stroke="var(--stage)" strokeWidth="3" />
@@ -85,7 +106,12 @@ export function ProductArt({ art, name }: { art: Product["art"]; name: string })
         <g stroke="var(--foreground)" strokeWidth="3" strokeLinejoin="round">
           <rect x="41" y="36" width="158" height="96" rx="11" fill="var(--foreground)" />
           <rect x="51" y="46" width="138" height="75" rx="4" fill="var(--stage)" />
-          <path d="M68 98 91 75l22 18 23-29 32 34" fill="none" stroke="var(--gold-ink)" strokeWidth="5" />
+          <path
+            d="M68 98 91 75l22 18 23-29 32 34"
+            fill="none"
+            stroke="var(--gold-ink)"
+            strokeWidth="5"
+          />
           <path d="M109 132v11m-20 0h62" strokeWidth="4" />
           <circle cx="179" cy="130" r="3" fill="var(--gold)" stroke="none" />
         </g>
@@ -94,8 +120,17 @@ export function ProductArt({ art, name }: { art: Product["art"]; name: string })
   );
 }
 
-export function ProductCard({ product, available, quantity, onAdd, onRemove, onGuide }: ProductCardProps) {
-  const maintenanceCount = product.serials.filter((serial) => serial.status === "MAINTENANCE").length;
+export function ProductCard({
+  product,
+  available,
+  quantity,
+  onAdd,
+  onRemove,
+  onGuide,
+}: ProductCardProps) {
+  const maintenanceCount = product.serials.filter(
+    (serial) => serial.status === "MAINTENANCE",
+  ).length;
   const unavailable = available === 0;
 
   return (
@@ -104,12 +139,20 @@ export function ProductCard({ product, available, quantity, onAdd, onRemove, onG
         <span className="tag-hole" aria-hidden="true" />
         <ProductArt art={product.art} name={product.name} />
         <div className="tag-price-tab">
-          <span className="wordmark text-xs font-semibold">{product.price.toLocaleString("id-ID")}</span>
-          <span className="mt-1 text-[9px] font-bold tracking-[0.08em] text-muted-foreground">/ 24 JAM</span>
+          <span className="wordmark text-xs font-semibold">
+            {product.price.toLocaleString("id-ID")}
+          </span>
+          <span className="mt-1 text-[9px] font-bold tracking-[0.08em] text-muted-foreground">
+            / 24 JAM
+          </span>
         </div>
         <div className="absolute bottom-3 left-3 right-3 z-10 flex flex-wrap gap-1.5">
-          <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-semibold ${unavailable ? "border-alert/20 bg-alert-soft text-alert" : "border-success/20 bg-success-soft text-success"}`}>
-            <span className={`h-1.5 w-1.5 rounded-full ${unavailable ? "bg-alert" : "bg-success"}`} />
+          <span
+            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-semibold ${unavailable ? "border-alert/20 bg-alert-soft text-alert" : "border-success/20 bg-success-soft text-success"}`}
+          >
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${unavailable ? "bg-alert" : "bg-success"}`}
+            />
             {unavailable ? "Terbooking Penuh" : `Tersedia ${available} Unit`}
           </span>
           {maintenanceCount > 0 && (
@@ -124,7 +167,9 @@ export function ProductCard({ product, available, quantity, onAdd, onRemove, onG
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <h3 className="wordmark text-[11px] font-semibold leading-5">{product.name}</h3>
-            <p className="mt-1 min-h-10 text-[10px] font-medium leading-[1.55] text-muted-foreground">{product.accessories}</p>
+            <p className="mt-1 min-h-10 text-[10px] font-medium leading-[1.55] text-muted-foreground">
+              {product.accessories}
+            </p>
           </div>
           <BrandMark />
         </div>
@@ -135,16 +180,38 @@ export function ProductCard({ product, available, quantity, onAdd, onRemove, onG
           </Button>
           {quantity > 0 ? (
             <div className="flex h-8 items-center overflow-hidden rounded-full border border-border bg-surface-soft">
-              <Button variant="ghost" size="icon" className="size-8 rounded-none" onClick={onRemove} aria-label={`Kurangi ${product.name}`}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8 rounded-none"
+                onClick={onRemove}
+                aria-label={`Kurangi ${product.name}`}
+              >
                 <span aria-hidden="true">−</span>
               </Button>
               <span className="min-w-6 text-center text-xs font-bold">{quantity}</span>
-              <Button variant="ghost" size="icon" className="size-8 rounded-none" onClick={onAdd} disabled={quantity >= available} aria-label={`Tambah ${product.name}`}>
-                {quantity >= available ? <Check className="size-3.5" /> : <Plus className="size-3.5" />}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8 rounded-none"
+                onClick={onAdd}
+                disabled={quantity >= available}
+                aria-label={`Tambah ${product.name}`}
+              >
+                {quantity >= available ? (
+                  <Check className="size-3.5" />
+                ) : (
+                  <Plus className="size-3.5" />
+                )}
               </Button>
             </div>
           ) : (
-            <Button size="sm" className="h-8 rounded-full px-3 text-xs" onClick={onAdd} disabled={unavailable}>
+            <Button
+              size="sm"
+              className="h-8 rounded-full px-3 text-xs"
+              onClick={onAdd}
+              disabled={unavailable}
+            >
               <Plus className="size-3.5" /> Sewa Alat
             </Button>
           )}
