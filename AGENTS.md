@@ -28,3 +28,7 @@ use the editor.
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
+
+## Project architecture
+
+- Keep the SMartPro rental experience frontend-only, using seeded in-memory React state and pure rules so its demo workflows require no Cloud or external services.
