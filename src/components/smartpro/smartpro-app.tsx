@@ -130,35 +130,55 @@ const CATEGORIES = [
 ] as const;
 
 /**
- * Tracks whether a horizontal scroller is parked at its right edge, so the
- * chips fade can switch off once there is nothing left to reveal. Without this
- * the last chip stays permanently dimmed at the end of the scroll.
+ * Drives the two scroll-affordance flags for a horizontal scroller:
+ *
+ * - canScrollMore: content still sits to the right of the viewport, so the
+ *   right-edge fade should be visible.
+ * - atStart: the scroller is parked at the far left, so the left-edge fade can
+ *   be dropped -- otherwise the first chip is dimmed for no reason.
+ *
+ * Scroll snapping can leave scrollLeft mid-flight while a gesture settles, so
+ * the flags are recomputed inside a rAF to read the final position instead of
+ * a transient one.
  */
-function useScrollEnd<T extends HTMLElement>() {
+function useScrollEdges<T extends HTMLElement>() {
   const ref = useRef<T | null>(null);
-  const [atEnd, setAtEnd] = useState(false);
+  const [edges, setEdges] = useState({ canScrollMore: false, atStart: true });
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
 
-    const update = () => {
+    let frame = 0;
+    const measure = () => {
       const remaining = el.scrollWidth - el.clientWidth - el.scrollLeft;
-      setAtEnd(remaining <= 4);
+      const canScrollMore = remaining > 4;
+      const atStart = el.scrollLeft <= 4;
+      setEdges((prev) =>
+        prev.canScrollMore === canScrollMore && prev.atStart === atStart
+          ? prev
+          : { canScrollMore, atStart },
+      );
     };
 
-    update();
-    el.addEventListener("scroll", update, { passive: true });
-    const observer = new ResizeObserver(update);
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(measure);
+    };
+
+    schedule();
+    el.addEventListener("scroll", schedule, { passive: true });
+    const observer = new ResizeObserver(schedule);
     observer.observe(el);
 
     return () => {
-      el.removeEventListener("scroll", update);
+      cancelAnimationFrame(frame);
+      el.removeEventListener("scroll", schedule);
       observer.disconnect();
     };
   }, []);
 
-  return { ref, atEnd };
+  return { ref, ...edges };
 }
 
 const ADD_ONS = [
@@ -576,7 +596,7 @@ function BundleCard({
 }
 
 export function SmartProApp() {
-  const chipsScroll = useScrollEnd<HTMLDivElement>();
+  const chipsScroll = useScrollEdges<HTMLDivElement>();
   const [view, setView] = useState<"catalog" | "admin">("catalog");
   const [adminSection, setAdminSection] = useState("Ringkasan");
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
@@ -1185,7 +1205,8 @@ export function SmartProApp() {
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
               <div
                 ref={chipsScroll.ref}
-                data-at-end={chipsScroll.atEnd}
+                data-more={chipsScroll.canScrollMore}
+                data-start={chipsScroll.atStart}
                 className="chips-scroll chips-fade flex max-w-full snap-x snap-mandatory gap-2 overflow-x-auto pb-1"
               >
                 {CATEGORIES.map((item) => (

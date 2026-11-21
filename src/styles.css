@@ -332,22 +332,51 @@
 }
 
 .chips-fade {
-  --chips-fade-size: 2.25rem;
+  --chips-fade-size: 2rem;
+  /* Only the right edge fades by default: that is where hidden content is.
+   * The left edge gets its own fade once the row has been scrolled, which is
+   * handled below via the data-start flag. */
   -webkit-mask-image: linear-gradient(
     to right,
+    #000 0,
     #000 calc(100% - var(--chips-fade-size)),
     transparent 100%
   );
   mask-image: linear-gradient(
     to right,
+    #000 0,
     #000 calc(100% - var(--chips-fade-size)),
     transparent 100%
   );
 }
 
-/* Once the row is scrolled to its end there is nothing left to reveal, so the
- * mask would just fade a fully visible chip for no reason. */
-.chips-fade[data-at-end="true"] {
+/* Scrolled past the start: fade the left edge too, so the row reads as having
+ * content in both directions instead of looking abruptly cut at the container. */
+.chips-fade[data-start="false"] {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--chips-fade-size),
+    #000 calc(100% - var(--chips-fade-size)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--chips-fade-size),
+    #000 calc(100% - var(--chips-fade-size)),
+    transparent 100%
+  );
+}
+
+/* Nothing left to reveal on the right: keep only the left fade (if any). */
+.chips-fade[data-more="false"] {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--chips-fade-size));
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--chips-fade-size));
+}
+
+/* Parked at the start and nothing overflows: no fades at all. */
+.chips-fade[data-more="false"][data-start="true"] {
   -webkit-mask-image: none;
   mask-image: none;
 }
