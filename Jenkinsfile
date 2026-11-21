@@ -21,7 +21,7 @@ pipeline {
     IMAGE_TAG         = "${env.BUILD_NUMBER}"
     IMAGE             = "${DOCKER_REGISTRY}/${IMAGE_NAME}"
     CONTAINER_NAME    = 'smartpro-web'
-    APP_PORT          = '3000'
+    APP_PORT          = '3050'
     REGISTRY_CRED_ID  = "${env.REGISTRY_CRED_ID ?: 'docker-registry-credentials'}"
   }
 
