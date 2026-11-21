@@ -39,7 +39,9 @@ pipeline {
     stage('Lint & Test') {
       steps {
         // Run inside a container: the host Node on this agent is broken (missing libatomic).
+        // The inner commands live in a script file so quoting stays simple and reliable.
         // Run as the workspace owner so generated files stay removable by cleanWs().
+        writeFile file: '.ci-lint-test.sh', text: '#!/bin/sh\nset -e\nbun install --frozen-lockfile\nbun run lint\nbun run test\n'
         sh """
           docker run --rm \
             --user "\$(id -u):\$(id -g)" \
@@ -47,7 +49,7 @@ pipeline {
             -v "\$WORKSPACE":/app \
             -w /app \
             ${BUILD_IMAGE} \
-            sh -lc 'bun install --frozen-lockfile && bun run lint && bun run test'
+            sh /app/.ci-lint-test.sh
         """
       }
       post {
