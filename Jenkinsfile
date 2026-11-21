@@ -65,9 +65,12 @@ pipeline {
         sh """
           set -e
           docker rm -f ${CONTAINER_NAME}-smoke 2>/dev/null || true
-          # Published on the host loopback only; the probe below runs INSIDE the
-          # smoke container, so 127.0.0.1 there is the container itself -- correct.
-          docker run -d --name ${CONTAINER_NAME}-smoke -p 127.0.0.1:${APP_PORT}:${APP_PORT} ${IMAGE}:${IMAGE_TAG}
+          # No -p here on purpose: publishing a port would reserve APP_PORT on the
+          # host, which the live container already holds -- any bind address,
+          # including 127.0.0.1, still reserves the port and fails with
+          # "port is already allocated". The probe below uses docker exec, which
+          # runs INSIDE the smoke container, so no host port is needed at all.
+          docker run -d --name ${CONTAINER_NAME}-smoke ${IMAGE}:${IMAGE_TAG}
           for i in \$(seq 1 30); do
             if docker exec ${CONTAINER_NAME}-smoke node -e "fetch('http://127.0.0.1:${APP_PORT}/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then
               echo "Smoke test passed"; break
