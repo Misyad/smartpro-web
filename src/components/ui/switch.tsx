@@ -7,32 +7,30 @@ const Switch = React.forwardRef<
   React.ElementRef<typeof SwitchPrimitives.Root>,
   React.ComponentPropsWithoutRef<typeof SwitchPrimitives.Root>
 >(({ className, ...props }, ref) => (
-  /* The root is the touch target, not the pill. A 36x20 pill is below the 44px
-   * minimum, and small toggles are a classic mis-tap. Padding grows the
-   * clickable box to 44x44 while the visual track stays 36x20 and the thumb
-   * still travels the full width of the track. Negative margin keeps the
-   * extra padding from shifting the surrounding layout.
+  /* The track has to be the Radix Root itself, not a child of it. Radix puts
+   * data-state on the Root, and the checked/unchecked background is selected
+   * with data-[state=checked]:bg-primary on that same element. Wrapping the
+   * Root in a padded box and moving the track onto an inner span silently
+   * dropped both backgrounds, leaving a transparent pill with a floating
+   * thumb.
    *
-   * The thumb uses translate-x-[calc(100%+2px)] rather than a fixed 16px so
-   * the travel distance stays correct if the track is ever resized. */
+   * So the Root stays the track at its natural 36x20, and the 44px touch
+   * target comes from a ::before overlay that extends past the visual bounds.
+   * The overlay is part of the button, so it is tappable, but it adds no
+   * layout size -- the switch still occupies 36x20 in the flow. */
   <SwitchPrimitives.Root
     className={cn(
-      "-m-3 inline-flex shrink-0 cursor-pointer items-center border-0 bg-transparent p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50",
+      "peer relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent shadow-sm transition-colors before:absolute before:-inset-3 before:rounded-full before:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=unchecked]:bg-input",
       className,
     )}
     {...props}
     ref={ref}
   >
-    <span
-      aria-hidden="true"
-      className="pointer-events-none relative flex h-5 w-9 shrink-0 items-center rounded-full border-2 border-transparent shadow-sm transition-colors data-[state=checked]:bg-primary data-[state=unchecked]:bg-input"
-    >
-      <SwitchPrimitives.Thumb
-        className={cn(
-          "pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform data-[state=checked]:translate-x-4 data-[state=unchecked]:translate-x-0",
-        )}
-      />
-    </span>
+    <SwitchPrimitives.Thumb
+      className={cn(
+        "pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform data-[state=checked]:translate-x-4 data-[state=unchecked]:translate-x-0",
+      )}
+    />
   </SwitchPrimitives.Root>
 ));
 Switch.displayName = SwitchPrimitives.Root.displayName;
