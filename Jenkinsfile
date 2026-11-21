@@ -1,6 +1,6 @@
 // Declarative pipeline: test, build a Docker image, smoke-test it, then push and deploy.
-// Install, lint, and test run inside a container so the pipeline does not depend on
-// tools installed on the Jenkins agent itself.
+// Lint, tests, and the production build all run inside Docker, so the pipeline does not
+// depend on tools installed on the Jenkins agent or on host/container path mounts.
 //
 // Configure these as Jenkins credentials / global env or edit the defaults below:
 //   DOCKER_REGISTRY   e.g. docker.io/youruser  (or a private registry host)
@@ -26,7 +26,6 @@ pipeline {
     CONTAINER_NAME    = 'smartpro-web'
     APP_PORT          = '3050'
     REGISTRY_CRED_ID  = "${env.REGISTRY_CRED_ID ?: 'docker-registry-credentials'}"
-    BUILD_IMAGE       = 'oven/bun:1'
   }
 
   stages {
@@ -38,24 +37,15 @@ pipeline {
 
     stage('Lint & Test') {
       steps {
-        // Run inside a container: the host Node on this agent is broken (missing libatomic).
-        // The inner commands live in a script file so quoting stays simple and reliable.
-        // Run as the workspace owner so generated files stay removable by cleanWs().
-        writeFile file: '.ci-lint-test.sh', text: '#!/bin/sh\nset -e\nbun install --frozen-lockfile\nbun run lint\nbun run test\n'
+        // Run lint and tests inside the Docker build (the source travels as build context),
+        // which avoids host/container path mismatch and any tools missing on the agent.
         sh """
-          docker run --rm \
-            --user "\$(id -u):\$(id -g)" \
-            -e HOME=/tmp \
-            -v "\$WORKSPACE":/app \
-            -w /app \
-            ${BUILD_IMAGE} \
-            sh /app/.ci-lint-test.sh
+          docker build \
+            --target test \
+            --label "org.opencontainers.image.revision=${env.GIT_COMMIT}" \
+            -t ${IMAGE}:test \
+            .
         """
-      }
-      post {
-        always {
-          junit allowEmptyResults: true, testResults: 'junit.xml'
-        }
       }
     }
 

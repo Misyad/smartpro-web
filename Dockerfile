@@ -1,13 +1,19 @@
 # syntax=docker/dockerfile:1.7
 
-# --- Build stage: compile the TanStack Start app into a standalone Node server ---
-FROM oven/bun:1 AS build
+# --- Dependencies: install once from the committed lockfile ---
+FROM oven/bun:1 AS deps
 WORKDIR /app
-
-# Install dependencies from the committed bun lockfile for a reproducible build.
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 
+# --- Test stage: lint and unit tests (used by CI through `docker build --target test`) ---
+FROM deps AS test
+COPY . .
+RUN bun run lint
+RUN bun run test
+
+# --- Build stage: compile the TanStack Start app into a standalone Node server ---
+FROM deps AS build
 COPY . .
 ENV BUILD_TARGET=node
 RUN bun run build
