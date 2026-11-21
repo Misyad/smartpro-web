@@ -203,7 +203,34 @@
     border-color: var(--color-border);
   }
 
+  /* Pin the page to a single horizontal axis.
+
+   * Without this the document still *accepts* horizontal overscroll: on a
+   * touch device, dragging the page sideways rubber-bands the whole viewport
+   * past its own bounds and the area revealed underneath is painted by the
+   * root element -- which is unstyled -- so it shows as a bare white gutter.
+   *
+   * overflow-x: clip removes that scroll axis entirely, so the page cannot be
+   * dragged sideways at all. clip is used instead of hidden because hidden
+   * still creates a scroll container (and would break position: sticky and
+   * programmatic scrolling); clip does not.
+   *
+   * overscroll-behavior-x: none additionally tells the browser not to chain a
+   * sideways swipe into history navigation, which is the other way a
+   * left/right drag can move the page out from under the user.
+   *
+   * background on html matters: when an ancestor paints no colour, the
+   * viewport canvas falls back to white. Painting here keeps any remaining
+   * overscroll dance on the theme colour instead of flashing white. */
+  html {
+    overflow-x: clip;
+    overscroll-behavior-x: none;
+    background-color: var(--color-background);
+  }
+
   body {
+    overflow-x: clip;
+    overscroll-behavior-x: none;
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-family-sans);
