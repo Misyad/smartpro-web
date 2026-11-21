@@ -19,11 +19,20 @@ import {
   type PaymentRecord,
   type Product,
   type ReturnRequest,
+  type ScheduleEntry,
   type Transaction,
   type User,
 } from "@/lib/smartpro-data";
+import {
+  SEED_EXTENDS,
+  SEED_PAYMENTS,
+  SEED_RETURNS,
+  SEED_SCHEDULE,
+  SEED_TRANSACTIONS,
+  SEED_USERS,
+} from "@/lib/smartpro-seed";
 
-const STORAGE_KEY = "smartpro-state-v2";
+const STORAGE_KEY = "smartpro-state-v3";
 
 export type CartLine = {
   key: string;
@@ -35,16 +44,7 @@ export type CartLine = {
   productId?: string;
 };
 
-export type ScheduleEntry = {
-  id: string;
-  customer: string;
-  product: string;
-  duration: "12h" | "24h";
-  date: string;
-  kind: "Pick-Up" | "Return";
-  status: "Menunggu" | "Diambil" | "Dikembalikan";
-  phone: string;
-};
+export type { ScheduleEntry } from "@/lib/smartpro-data";
 
 export type AppState = {
   users: User[];
@@ -108,6 +108,7 @@ export const INITIAL_USERS: User[] = [
     kyc: null,
     points: 0,
   },
+  ...SEED_USERS,
 ];
 
 const INITIAL_STATE: AppState = {
@@ -116,11 +117,11 @@ const INITIAL_STATE: AppState = {
   products: INITIAL_PRODUCTS,
   bundles: INITIAL_BUNDLES,
   cart: [],
-  transactions: [],
-  payments: [],
-  returns: [],
-  extends: [],
-  schedule: [],
+  transactions: SEED_TRANSACTIONS,
+  payments: SEED_PAYMENTS,
+  returns: SEED_RETURNS,
+  extends: SEED_EXTENDS,
+  schedule: SEED_SCHEDULE,
   settings: DEFAULT_SETTINGS,
 };
 

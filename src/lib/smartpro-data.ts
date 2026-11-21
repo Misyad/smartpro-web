@@ -113,6 +113,17 @@ export type Transaction = {
   createdAt: string;
 };
 
+export type ScheduleEntry = {
+  id: string;
+  customer: string;
+  product: string;
+  duration: "12h" | "24h";
+  date: string;
+  kind: "Pick-Up" | "Return";
+  status: "Menunggu" | "Diambil" | "Dikembalikan";
+  phone: string;
+};
+
 export type ReturnTarget = "admin" | "next-customer";
 
 export type ReturnRequest = {
