@@ -189,12 +189,22 @@
 @media (max-width: 640px) {
   .smartpro-app button,
   .smartpro-app [role="button"],
-  .smartpro-app [role="switch"],
   .smartpro-app select,
   .smartpro-app input[type="checkbox"],
   .smartpro-app a[href] {
     min-height: 2.75rem;
     min-width: 2.75rem;
+  }
+
+  /* A switch is a pill: forcing min-width: 2.75rem onto the track stretches it
+   * from 36x20 into a 44x44 blob, and the thumb -- once -- still only slides
+   * 16px, so at rest it sits inside a control twice its width and the "on/off"
+   * read is lost. The track keeps its own proportions; the 44x44 touch target
+   * comes from the padding below, which the visually-hidden hit area provides
+   * without distorting the shape. */
+  .smartpro-app [role="switch"] {
+    min-width: 0;
+    min-height: 0;
   }
 }
 
