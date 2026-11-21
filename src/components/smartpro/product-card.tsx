@@ -142,13 +142,13 @@ export function ProductCard({
           <span className="wordmark text-xs font-semibold">
             {product.price.toLocaleString("id-ID")}
           </span>
-          <span className="mt-1 text-[9px] font-bold tracking-[0.08em] text-muted-foreground">
+          <span className="mt-1 text-[11px] font-bold tracking-[0.08em] text-muted-foreground">
             / 24 JAM
           </span>
         </div>
         <div className="absolute bottom-3 left-3 right-3 z-10 flex flex-wrap gap-1.5">
           <span
-            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-semibold ${unavailable ? "border-alert/20 bg-alert-soft text-alert" : "border-success/20 bg-success-soft text-success"}`}
+            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${unavailable ? "border-alert/20 bg-alert-soft text-alert" : "border-success/20 bg-success-soft text-success"}`}
           >
             <span
               className={`h-1.5 w-1.5 rounded-full ${unavailable ? "bg-alert" : "bg-success"}`}
@@ -156,7 +156,7 @@ export function ProductCard({
             {unavailable ? "Terbooking Penuh" : `Tersedia ${available} Unit`}
           </span>
           {maintenanceCount > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-amber/20 bg-amber-soft px-2.5 py-1 text-[10px] font-semibold text-amber">
+            <span className="inline-flex items-center gap-1 rounded-full border border-amber/20 bg-amber-soft px-2.5 py-1 text-[11px] font-semibold text-amber">
               <Wrench className="size-3" /> {maintenanceCount} Servis
             </span>
           )}
@@ -167,7 +167,7 @@ export function ProductCard({
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <h3 className="wordmark text-[11px] font-semibold leading-5">{product.name}</h3>
-            <p className="mt-1 min-h-10 text-[10px] font-medium leading-[1.55] text-muted-foreground">
+            <p className="mt-1 min-h-10 text-[11px] font-medium leading-[1.55] text-muted-foreground">
               {product.accessories}
             </p>
           </div>

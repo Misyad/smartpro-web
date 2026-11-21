@@ -128,6 +128,59 @@ const CATEGORIES = [
   "Wireless Video",
   "Switcher & Live",
 ] as const;
+
+/**
+ * Drives the two scroll-affordance flags for a horizontal scroller:
+ *
+ * - canScrollMore: content still sits to the right of the viewport, so the
+ *   right-edge fade should be visible.
+ * - atStart: the scroller is parked at the far left, so the left-edge fade can
+ *   be dropped -- otherwise the first chip is dimmed for no reason.
+ *
+ * Scroll snapping can leave scrollLeft mid-flight while a gesture settles, so
+ * the flags are recomputed inside a rAF to read the final position instead of
+ * a transient one.
+ */
+function useScrollEdges<T extends HTMLElement>() {
+  const ref = useRef<T | null>(null);
+  const [edges, setEdges] = useState({ canScrollMore: false, atStart: true });
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    let frame = 0;
+    const measure = () => {
+      const remaining = el.scrollWidth - el.clientWidth - el.scrollLeft;
+      const canScrollMore = remaining > 4;
+      const atStart = el.scrollLeft <= 4;
+      setEdges((prev) =>
+        prev.canScrollMore === canScrollMore && prev.atStart === atStart
+          ? prev
+          : { canScrollMore, atStart },
+      );
+    };
+
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(measure);
+    };
+
+    schedule();
+    el.addEventListener("scroll", schedule, { passive: true });
+    const observer = new ResizeObserver(schedule);
+    observer.observe(el);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      el.removeEventListener("scroll", schedule);
+      observer.disconnect();
+    };
+  }, []);
+
+  return { ref, ...edges };
+}
+
 const ADD_ONS = [
   {
     id: "cable-20m",
@@ -453,7 +506,7 @@ function BundleCard({
     <article className="tag-card flex h-full flex-col border-gold/40">
       <div className="tag-stage min-h-[220px] bg-surface-soft">
         <span className="tag-hole" aria-hidden="true" />
-        <div className="absolute left-4 top-4 z-10 inline-flex items-center gap-1 rounded-full bg-gold px-2.5 py-1 text-[9px] font-bold uppercase text-primary">
+        <div className="absolute left-4 top-4 z-10 inline-flex items-center gap-1 rounded-full bg-gold px-2.5 py-1 text-[11px] font-bold uppercase text-primary">
           <Sparkles className="size-3" /> Paket hemat
         </div>
         <div className="flex items-end justify-center gap-[-14px] pt-5">
@@ -473,12 +526,12 @@ function BundleCard({
           <span className="wordmark text-xs font-semibold">
             {bundle.price.toLocaleString("id-ID")}
           </span>
-          <span className="mt-1 text-[9px] font-bold tracking-[0.08em] text-muted-foreground">
+          <span className="mt-1 text-[11px] font-bold tracking-[0.08em] text-muted-foreground">
             / 24 JAM
           </span>
         </div>
         <span
-          className={`absolute bottom-3 left-3 z-10 rounded-full border px-2.5 py-1 text-[10px] font-semibold ${availability > 0 ? "border-success/20 bg-success-soft text-success" : "border-alert/20 bg-alert-soft text-alert"}`}
+          className={`absolute bottom-3 left-3 z-10 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${availability > 0 ? "border-success/20 bg-success-soft text-success" : "border-alert/20 bg-alert-soft text-alert"}`}
         >
           {availability > 0 ? `Tersedia ${availability} Paket` : "Paket sedang penuh"}
         </span>
@@ -486,17 +539,17 @@ function BundleCard({
       <div className="flex flex-1 flex-col px-1 pb-1 pt-4">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h3 className="wordmark text-[10px] font-semibold leading-5">{bundle.name}</h3>
-            <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
+            <h3 className="wordmark text-[11px] font-semibold leading-5">{bundle.name}</h3>
+            <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
               {contents.join(" · ")}
             </p>
-            <p className="mt-1 min-h-8 text-[10px] text-muted-foreground">{bundle.note}</p>
+            <p className="mt-1 min-h-8 text-[11px] text-muted-foreground">{bundle.note}</p>
           </div>
           <BrandMark />
         </div>
         <div className="mt-auto flex items-end justify-between gap-3 border-t border-border/70 pt-3">
           <div>
-            <p className="text-[10px] text-muted-foreground line-through">
+            <p className="text-[11px] text-muted-foreground line-through">
               {formatRupiah(bundle.regularPrice)}
             </p>
             <p className="text-xs font-bold text-gold-ink">
@@ -543,6 +596,7 @@ function BundleCard({
 }
 
 export function SmartProApp() {
+  const chipsScroll = useScrollEdges<HTMLDivElement>();
   const [view, setView] = useState<"catalog" | "admin">("catalog");
   const [adminSection, setAdminSection] = useState("Ringkasan");
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
@@ -974,8 +1028,8 @@ export function SmartProApp() {
           <div className="flex min-w-fit items-center gap-2.5">
             <BrandMark className="size-10" />
             <div>
-              <p className="wordmark text-[10px] font-bold leading-4">SMartPro</p>
-              <p className="text-[10px] font-medium text-muted-foreground">
+              <p className="wordmark text-[11px] font-bold leading-4">SMartPro</p>
+              <p className="text-[11px] font-medium text-muted-foreground">
                 Audio Video Production
               </p>
             </div>
@@ -998,7 +1052,7 @@ export function SmartProApp() {
             >
               <Activity className="size-3.5" /> Dashboard Admin
               {pendingKyc > 0 && (
-                <span className="grid size-4 place-items-center rounded-full bg-gold text-[9px] text-primary">
+                <span className="grid size-4 place-items-center rounded-full bg-gold text-[11px] text-primary">
                   {pendingKyc}
                 </span>
               )}
@@ -1035,7 +1089,7 @@ export function SmartProApp() {
                 <ShoppingBag className="size-3.5" />
                 <span className="hidden sm:inline">Tas Sewa</span>
                 {cartCount > 0 && (
-                  <span className="grid size-5 place-items-center rounded-full bg-gold text-[10px] text-primary">
+                  <span className="grid size-5 place-items-center rounded-full bg-gold text-[11px] text-primary">
                     {cartCount}
                   </span>
                 )}
@@ -1070,7 +1124,7 @@ export function SmartProApp() {
             >
               <div className="grid grid-cols-2 gap-3">
                 <label className="min-w-0">
-                  <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                  <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                     Tanggal ambil
                   </span>
                   <Input
@@ -1089,7 +1143,7 @@ export function SmartProApp() {
                   />
                 </label>
                 <label className="min-w-0">
-                  <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                  <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                     Tanggal kembali
                   </span>
                   <Input
@@ -1108,7 +1162,7 @@ export function SmartProApp() {
                 </span>
                 <div>
                   <p className="wordmark text-sm font-semibold">{days}× 24 JAM</p>
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-[11px] text-muted-foreground">
                     {formatDate(startDate)} s/d {formatDate(endDate)}
                   </p>
                 </div>
@@ -1119,7 +1173,7 @@ export function SmartProApp() {
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className="mr-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                <span className="mr-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                   Tier
                 </span>
                 {(
@@ -1134,7 +1188,7 @@ export function SmartProApp() {
                     type="button"
                     size="sm"
                     variant={tier === value ? "default" : "outline"}
-                    className="h-8 rounded-full px-2.5 text-[10px]"
+                    className="h-8 rounded-full px-2.5 text-[11px]"
                     onClick={() => {
                       setTier(value);
                       setKycFastPath(value !== "regular");
@@ -1149,13 +1203,18 @@ export function SmartProApp() {
             </section>
 
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex max-w-full gap-2 overflow-x-auto pb-1">
+              <div
+                ref={chipsScroll.ref}
+                data-more={chipsScroll.canScrollMore}
+                data-start={chipsScroll.atStart}
+                className="chips-scroll chips-fade flex max-w-full snap-x snap-mandatory gap-2 overflow-x-auto pb-1"
+              >
                 {CATEGORIES.map((item) => (
                   <Button
                     key={item}
                     variant={category === item ? "default" : "outline"}
                     size="sm"
-                    className="h-9 shrink-0 rounded-full px-4 text-xs"
+                    className="h-9 shrink-0 snap-start rounded-full px-4 text-xs"
                     onClick={() => setCategory(item)}
                   >
                     {item}
@@ -1267,7 +1326,7 @@ export function SmartProApp() {
                 >
                   {item}
                   {item === "Verifikasi KYC" && pendingKyc > 0 && (
-                    <span className="ml-1 grid size-4 place-items-center rounded-full bg-alert text-[9px] text-primary-foreground">
+                    <span className="ml-1 grid size-4 place-items-center rounded-full bg-alert text-[11px] text-primary-foreground">
                       {pendingKyc}
                     </span>
                   )}
@@ -1304,7 +1363,7 @@ export function SmartProApp() {
                   />
                 </div>
                 <div className="grid gap-8 xl:grid-cols-[1.5fr_1fr]">
-                  <div>
+                  <div className="min-w-0">
                     <div className="mb-3 flex items-center justify-between gap-3">
                       <div>
                         <p className="section-label">Agenda operasional</p>
@@ -1355,13 +1414,13 @@ export function SmartProApp() {
                         <div className="flex items-center justify-between gap-3">
                           <div>
                             <p className="text-xs font-semibold">Pengingat otomatis</p>
-                            <p className="mt-1 text-[10px] text-muted-foreground">
+                            <p className="mt-1 text-[11px] text-muted-foreground">
                               {autoWa ? "Aktif · cek 3 jam sebelum kembali" : "Nonaktif"}
                             </p>
                           </div>
                           <Button
                             size="sm"
-                            className="rounded-full text-[10px]"
+                            className="rounded-full text-[11px]"
                             onClick={() => {
                               setWaLogs((current) => [
                                 `${new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} · Batch · ${activeRentals.length} pengingat disiapkan`,
@@ -1377,7 +1436,7 @@ export function SmartProApp() {
                           {activeRentals.slice(0, 3).map((rental) => (
                             <div
                               key={rental.id}
-                              className="flex items-center justify-between gap-3 text-[10px]"
+                              className="flex items-center justify-between gap-3 text-[11px]"
                             >
                               <span className="truncate text-muted-foreground">
                                 {rental.id} · {rental.customer}
@@ -1389,13 +1448,13 @@ export function SmartProApp() {
                           ))}
                         </div>
                         <div className="mt-4 border-t border-border pt-3">
-                          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                             Log WhatsApp simulasi
                           </p>
                           {waLogs.slice(0, 3).map((line, index) => (
                             <p
                               key={`${line}-${index}`}
-                              className="truncate py-1 text-[10px] text-muted-foreground"
+                              className="truncate py-1 text-[11px] text-muted-foreground"
                             >
                               {line}
                             </p>
@@ -1436,7 +1495,7 @@ export function SmartProApp() {
                                 <span className="block truncate text-xs font-semibold">
                                   {entry.name}
                                 </span>
-                                <span className="mt-1 block truncate text-[10px] text-muted-foreground">
+                                <span className="mt-1 block truncate text-[11px] text-muted-foreground">
                                   {entry.project}
                                 </span>
                               </span>
@@ -1503,45 +1562,47 @@ export function SmartProApp() {
                   <p className="section-label">Pemeriksaan pelanggan</p>
                   <h2 className="wordmark mt-1 text-sm font-semibold">Antrean Verifikasi KYC</h2>
                 </div>
-                <div className="overflow-x-auto border border-border bg-card">
-                  <table className="w-full min-w-[680px] text-left text-xs">
-                    <thead className="bg-surface-soft text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
-                      <tr>
-                        <th className="px-4 py-3">Pelanggan</th>
-                        <th className="px-4 py-3">Proyek</th>
-                        <th className="px-4 py-3">Kontak</th>
-                        <th className="px-4 py-3">Status</th>
-                        <th className="px-4 py-3 text-right">Tinjau</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {kycQueue.map((entry) => (
-                        <tr key={entry.id} className="border-t border-border">
-                          <td className="px-4 py-3">
-                            <p className="font-semibold">{entry.name}</p>
-                            <p className="mt-1 text-[10px] text-muted-foreground">
-                              {entry.id} · {entry.instagram}
-                            </p>
-                          </td>
-                          <td className="px-4 py-3">{entry.project}</td>
-                          <td className="px-4 py-3">{entry.phone}</td>
-                          <td className="px-4 py-3">
-                            <StatusPill status={entry.status} />
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="rounded-full text-[10px]"
-                              onClick={() => setKycDetail(entry)}
-                            >
-                              Periksa
-                            </Button>
-                          </td>
+                <div className="scroll-fade">
+                  <div className="table-scroll overflow-x-auto border border-border bg-card">
+                    <table className="w-full min-w-[680px] text-left text-xs">
+                      <thead className="bg-surface-soft text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+                        <tr>
+                          <th className="px-4 py-3">Pelanggan</th>
+                          <th className="px-4 py-3">Proyek</th>
+                          <th className="px-4 py-3">Kontak</th>
+                          <th className="px-4 py-3">Status</th>
+                          <th className="px-4 py-3 text-right">Tinjau</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {kycQueue.map((entry) => (
+                          <tr key={entry.id} className="border-t border-border">
+                            <td className="px-4 py-3">
+                              <p className="font-semibold">{entry.name}</p>
+                              <p className="mt-1 text-[11px] text-muted-foreground">
+                                {entry.id} · {entry.instagram}
+                              </p>
+                            </td>
+                            <td className="px-4 py-3">{entry.project}</td>
+                            <td className="px-4 py-3">{entry.phone}</td>
+                            <td className="px-4 py-3">
+                              <StatusPill status={entry.status} />
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-full text-[11px]"
+                                onClick={() => setKycDetail(entry)}
+                              >
+                                Periksa
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
                 {verifiedPhones.length > 0 && (
                   <div className="mt-4 border border-success/20 bg-success-soft p-4">
@@ -1590,7 +1651,7 @@ export function SmartProApp() {
                           <p className="text-xs font-semibold text-success">
                             {scanResult.code} · {scanResult.productName}
                           </p>
-                          <p className="mt-1 text-[10px] text-success">
+                          <p className="mt-1 text-[11px] text-success">
                             Status aset:{" "}
                             {scanResult.status === "READY" ? "Siap disewa" : "Dalam servis"}
                           </p>
@@ -1603,7 +1664,7 @@ export function SmartProApp() {
                       <Wrench className="size-4" />
                     </span>
                     <div>
-                      <p className="text-[10px] text-muted-foreground">Unit terkunci servis</p>
+                      <p className="text-[11px] text-muted-foreground">Unit terkunci servis</p>
                       <p className="wordmark text-base font-semibold">
                         {products.reduce(
                           (sum, product) =>
@@ -1621,14 +1682,14 @@ export function SmartProApp() {
                     <div key={product.id} className="border border-border bg-card">
                       <div className="grid gap-3 p-4 sm:grid-cols-[1.4fr_1fr_1fr_auto] sm:items-center">
                         <div>
-                          <p className="wordmark text-[10px] font-semibold">{product.name}</p>
-                          <p className="mt-1 text-[10px] text-muted-foreground">
+                          <p className="wordmark text-[11px] font-semibold">{product.name}</p>
+                          <p className="mt-1 text-[11px] text-muted-foreground">
                             {product.category} ·{" "}
                             {product.serials.filter((serial) => serial.status === "READY").length}{" "}
                             tersedia
                           </p>
                         </div>
-                        <label className="text-[10px] font-semibold text-muted-foreground">
+                        <label className="text-[11px] font-semibold text-muted-foreground">
                           Tarif / 24 jam
                           <Input
                             aria-label={`Tarif ${product.name}`}
@@ -1647,7 +1708,7 @@ export function SmartProApp() {
                             className="mt-1 h-9 bg-surface-soft text-xs text-foreground"
                           />
                         </label>
-                        <label className="text-[10px] font-semibold text-muted-foreground">
+                        <label className="text-[11px] font-semibold text-muted-foreground">
                           Jumlah unit
                           <Input
                             aria-label={`Jumlah unit ${product.name}`}
@@ -1663,7 +1724,7 @@ export function SmartProApp() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="rounded-full text-[10px]"
+                          className="rounded-full text-[11px]"
                           onClick={() =>
                             setActiveSerial(activeSerial === product.id ? "" : product.id)
                           }
@@ -1685,18 +1746,18 @@ export function SmartProApp() {
                                 includeMargin
                               />
                               <div className="min-w-0 flex-1">
-                                <p className="wordmark truncate text-[9px] font-semibold">
+                                <p className="wordmark truncate text-[11px] font-semibold">
                                   {serial.code}
                                 </p>
                                 <p
-                                  className={`mt-1 text-[10px] font-semibold ${serial.status === "READY" ? "text-success" : "text-amber"}`}
+                                  className={`mt-1 text-[11px] font-semibold ${serial.status === "READY" ? "text-success" : "text-amber"}`}
                                 >
                                   {serial.status === "READY" ? "Siap disewa" : "Dalam servis"}
                                 </p>
                                 <Button
                                   variant={serial.status === "READY" ? "outline" : "secondary"}
                                   size="sm"
-                                  className="mt-2 h-7 text-[9px]"
+                                  className="mt-2 h-7 text-[11px]"
                                   onClick={() => toggleMaintenance(product.id, serial.code)}
                                 >
                                   {serial.status === "READY" ? "Kunci servis" : "Buka servis"}
@@ -1736,7 +1797,7 @@ export function SmartProApp() {
                       notify("Mitra VIP berhasil ditambahkan ke daftar demo.");
                     }}
                   >
-                    <label className="block text-[10px] font-semibold text-muted-foreground">
+                    <label className="block text-[11px] font-semibold text-muted-foreground">
                       Nama mitra
                       <Input
                         value={newVip.name}
@@ -1747,7 +1808,7 @@ export function SmartProApp() {
                         className="mt-1 h-9 bg-surface-soft text-xs"
                       />
                     </label>
-                    <label className="block text-[10px] font-semibold text-muted-foreground">
+                    <label className="block text-[11px] font-semibold text-muted-foreground">
                       Kontak WhatsApp
                       <Input
                         value={newVip.contact}
@@ -1759,7 +1820,7 @@ export function SmartProApp() {
                       />
                     </label>
                     <div className="grid grid-cols-2 gap-3">
-                      <label className="text-[10px] font-semibold text-muted-foreground">
+                      <label className="text-[11px] font-semibold text-muted-foreground">
                         Diskon permanen (%)
                         <Input
                           type="number"
@@ -1772,7 +1833,7 @@ export function SmartProApp() {
                           className="mt-1 h-9 bg-surface-soft text-xs"
                         />
                       </label>
-                      <label className="text-[10px] font-semibold text-muted-foreground">
+                      <label className="text-[11px] font-semibold text-muted-foreground">
                         Poin awal
                         <Input
                           type="number"
@@ -1804,7 +1865,7 @@ export function SmartProApp() {
                             <BrandMark className="size-8" />
                             <div>
                               <p className="text-xs font-semibold">{partner.name}</p>
-                              <p className="mt-1 text-[10px] text-muted-foreground">
+                              <p className="mt-1 text-[11px] text-muted-foreground">
                                 {partner.contact} · Diskon permanen {partner.discount}%
                               </p>
                             </div>
@@ -1815,7 +1876,7 @@ export function SmartProApp() {
                             <p className="wordmark text-xs font-semibold">
                               {partner.points.toLocaleString("id-ID")} poin
                             </p>
-                            <p className="mt-1 text-[10px] text-muted-foreground">Bonus poin</p>
+                            <p className="mt-1 text-[11px] text-muted-foreground">Bonus poin</p>
                           </div>
                           <div className="flex gap-1">
                             <Input
@@ -1866,7 +1927,7 @@ export function SmartProApp() {
       </main>
 
       <footer className="border-t border-border bg-card">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-5 text-[10px] text-muted-foreground sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-5 text-[11px] text-muted-foreground sm:px-6 lg:px-8">
           <span className="wordmark font-semibold text-foreground">
             SMartPro · Audio Video Production
           </span>
@@ -1912,10 +1973,10 @@ export function SmartProApp() {
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-semibold">{line.name}</p>
-                      <p className="mt-1 text-[10px] text-muted-foreground">
+                      <p className="mt-1 text-[11px] text-muted-foreground">
                         {line.details ?? `${formatRupiah(line.price)} / 24 jam`}
                       </p>
-                      <p className="mt-1 text-[10px] text-muted-foreground">
+                      <p className="mt-1 text-[11px] text-muted-foreground">
                         {formatRupiah(line.price)} × {line.quantity} × {days} hari
                       </p>
                     </div>
@@ -1949,7 +2010,7 @@ export function SmartProApp() {
               <div className="border border-dashed border-border px-4 py-8 text-center">
                 <ShoppingBag className="mx-auto size-6 text-muted-foreground" />
                 <p className="mt-3 text-xs font-semibold">Tas sewa masih kosong</p>
-                <p className="mt-1 text-[10px] text-muted-foreground">
+                <p className="mt-1 text-[11px] text-muted-foreground">
                   Pilih perangkat atau paket untuk mulai.
                 </p>
               </div>
@@ -1972,17 +2033,17 @@ export function SmartProApp() {
                     >
                       <div className="min-w-0">
                         <p className="truncate text-[11px] font-semibold">{addon.name}</p>
-                        <p className="mt-1 truncate text-[10px] text-muted-foreground">
+                        <p className="mt-1 truncate text-[11px] text-muted-foreground">
                           {addon.detail}
                         </p>
-                        <p className="mt-1 text-[10px] font-semibold text-gold-ink">
+                        <p className="mt-1 text-[11px] font-semibold text-gold-ink">
                           {formatRupiah(addon.price)} / 24 jam
                         </p>
                       </div>
                       <Button
                         variant={inCart ? "secondary" : "outline"}
                         size="sm"
-                        className="h-8 shrink-0 rounded-full text-[10px]"
+                        className="h-8 shrink-0 rounded-full text-[11px]"
                         onClick={() => {
                           if (inCart) updateLine(`addon:${addon.id}`, -1);
                           else
@@ -2012,7 +2073,7 @@ export function SmartProApp() {
               <label className="mb-3 flex items-center justify-between gap-3 border border-gold/30 bg-amber-soft p-3 text-[11px]">
                 <span>
                   <span className="block font-semibold text-amber">Tukar 1.000 poin</span>
-                  <span className="mt-1 block text-[10px] text-amber">
+                  <span className="mt-1 block text-[11px] text-amber">
                     Potongan {formatRupiah(50000)}
                   </span>
                 </span>
@@ -2074,7 +2135,7 @@ export function SmartProApp() {
               </DialogDescription>
             </DialogHeader>
             <div className="mb-6 grid gap-3 sm:grid-cols-3 print-hide">
-              <label className="text-[10px] font-semibold text-muted-foreground">
+              <label className="text-[11px] font-semibold text-muted-foreground">
                 Nama klien
                 <Input
                   value={quoteFields.client}
@@ -2085,7 +2146,7 @@ export function SmartProApp() {
                   className="mt-1 h-9 text-xs"
                 />
               </label>
-              <label className="text-[10px] font-semibold text-muted-foreground">
+              <label className="text-[11px] font-semibold text-muted-foreground">
                 Nama proyek
                 <Input
                   value={quoteFields.project}
@@ -2096,7 +2157,7 @@ export function SmartProApp() {
                   className="mt-1 h-9 text-xs"
                 />
               </label>
-              <label className="text-[10px] font-semibold text-muted-foreground">
+              <label className="text-[11px] font-semibold text-muted-foreground">
                 PIC / kontak
                 <Input
                   value={quoteFields.pic}
@@ -2114,17 +2175,17 @@ export function SmartProApp() {
                   <BrandMark className="size-12" />
                   <div>
                     <p className="wordmark text-xs font-bold">SMartPro</p>
-                    <p className="mt-1 text-[10px] text-muted-foreground">
+                    <p className="mt-1 text-[11px] text-muted-foreground">
                       Audio Video Production · Jakarta
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="wordmark text-[10px] font-semibold">SURAT PENAWARAN</p>
-                  <p className="mt-1 text-[10px] text-muted-foreground">QT/SMP/2026/11/001</p>
+                  <p className="wordmark text-[11px] font-semibold">SURAT PENAWARAN</p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">QT/SMP/2026/11/001</p>
                 </div>
               </div>
-              <div className="mt-5 grid grid-cols-2 gap-4 text-[10px]">
+              <div className="mt-5 grid grid-cols-2 gap-4 text-[11px]">
                 <p>
                   <span className="text-muted-foreground">Kepada</span>
                   <br />
@@ -2141,31 +2202,33 @@ export function SmartProApp() {
                 </p>
               </div>
             </div>
-            <div className="my-5 overflow-x-auto">
-              <table className="w-full min-w-[430px] text-left text-[10px]">
-                <thead className="border-b border-border text-muted-foreground">
-                  <tr>
-                    <th className="py-2">Deskripsi</th>
-                    <th className="py-2 text-center">Qty</th>
-                    <th className="py-2 text-right">Tarif / hari</th>
-                    <th className="py-2 text-right">Jumlah</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pricing.lineDetails.map(({ line, breakdown }) => (
-                    <tr key={line.key} className="border-b border-border/60">
-                      <td className="py-2.5 font-semibold">{line.name}</td>
-                      <td className="py-2.5 text-center">
-                        {line.quantity} × {days} hari
-                      </td>
-                      <td className="py-2.5 text-right">{formatRupiah(line.price)}</td>
-                      <td className="py-2.5 text-right">{formatRupiah(breakdown.total)}</td>
+            <div className="scroll-fade">
+              <div className="my-5 table-scroll overflow-x-auto">
+                <table className="w-full min-w-[430px] text-left text-[11px]">
+                  <thead className="border-b border-border text-muted-foreground">
+                    <tr>
+                      <th className="py-2">Deskripsi</th>
+                      <th className="py-2 text-center">Qty</th>
+                      <th className="py-2 text-right">Tarif / hari</th>
+                      <th className="py-2 text-right">Jumlah</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {pricing.lineDetails.map(({ line, breakdown }) => (
+                      <tr key={line.key} className="border-b border-border/60">
+                        <td className="py-2.5 font-semibold">{line.name}</td>
+                        <td className="py-2.5 text-center">
+                          {line.quantity} × {days} hari
+                        </td>
+                        <td className="py-2.5 text-right">{formatRupiah(line.price)}</td>
+                        <td className="py-2.5 text-right">{formatRupiah(breakdown.total)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <div className="ml-auto max-w-xs space-y-1 text-[10px]">
+            <div className="ml-auto max-w-xs space-y-1 text-[11px]">
               <PriceLine label="Subtotal sewa" amount={pricing.base} />
               <PriceLine
                 label="Diskon promo & tier"
@@ -2181,7 +2244,7 @@ export function SmartProApp() {
                 <span>{formatRupiah(pricing.total)}</span>
               </div>
             </div>
-            <div className="mt-7 border-t border-border pt-4 text-[9px] text-muted-foreground">
+            <div className="mt-7 border-t border-border pt-4 text-[11px] text-muted-foreground">
               <p>
                 Penawaran ini merupakan estimasi untuk masa sewa yang tercantum dan ketersediaan
                 unit pada saat konfirmasi.
@@ -2236,14 +2299,14 @@ export function SmartProApp() {
                 <span className="relative grid size-12 place-items-center rounded-full bg-primary text-primary-foreground">
                   <Play className="ml-0.5 size-5 fill-current" />
                 </span>
-                <span className="absolute bottom-3 left-3 rounded-full bg-card px-2.5 py-1 text-[9px] font-bold">
+                <span className="absolute bottom-3 left-3 rounded-full bg-card px-2.5 py-1 text-[11px] font-bold">
                   VIDEO PREVIEW · 01:00
                 </span>
               </div>
               <ol className="space-y-3">
                 {(GUIDE_TIPS[guideProduct.id]?.steps ?? []).map((step, index) => (
                   <li key={step} className="flex gap-3">
-                    <span className="grid size-6 shrink-0 place-items-center rounded-full bg-surface-soft text-[10px] font-bold text-gold-ink">
+                    <span className="grid size-6 shrink-0 place-items-center rounded-full bg-surface-soft text-[11px] font-bold text-gold-ink">
                       {index + 1}
                     </span>
                     <span className="pt-1 text-xs leading-relaxed">{step}</span>
@@ -2251,7 +2314,7 @@ export function SmartProApp() {
                 ))}
               </ol>
               <div className="border-l-2 border-gold bg-amber-soft px-3 py-2.5">
-                <p className="text-[9px] font-bold uppercase text-amber">Pro-Tip</p>
+                <p className="text-[11px] font-bold uppercase text-amber">Pro-Tip</p>
                 <p className="mt-1 text-[11px] leading-relaxed text-amber">
                   {GUIDE_TIPS[guideProduct.id]?.tip}
                 </p>
@@ -2288,10 +2351,10 @@ export function SmartProApp() {
                 <div key={rental.id} className="border border-border bg-card p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className="wordmark text-[10px] font-semibold">
+                      <p className="wordmark text-[11px] font-semibold">
                         {rental.id} · {product?.name}
                       </p>
-                      <p className="mt-1 text-[10px] text-muted-foreground">
+                      <p className="mt-1 text-[11px] text-muted-foreground">
                         {rental.customer} · kembali {formatDate(rental.dueDate)}
                       </p>
                     </div>
@@ -2301,7 +2364,7 @@ export function SmartProApp() {
                   </div>
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
                     <p
-                      className={`flex items-center gap-1.5 text-[10px] font-semibold ${conflictProduct ? "text-alert" : "text-success"}`}
+                      className={`flex items-center gap-1.5 text-[11px] font-semibold ${conflictProduct ? "text-alert" : "text-success"}`}
                     >
                       {conflictProduct ? (
                         <CircleAlert className="size-3.5" />
@@ -2314,7 +2377,7 @@ export function SmartProApp() {
                     </p>
                     <Button
                       size="sm"
-                      className="rounded-full text-[10px]"
+                      className="rounded-full text-[11px]"
                       disabled={conflictProduct}
                       onClick={() => extendRental(rental)}
                     >
@@ -2325,7 +2388,7 @@ export function SmartProApp() {
               );
             })}
           </div>
-          <p className="text-[10px] leading-relaxed text-muted-foreground">
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
             Perpanjangan mengikuti ketersediaan serial yang sama. Jika terbooking penuh, hubungi tim
             SMartPro untuk opsi unit lain.
           </p>
@@ -2387,7 +2450,7 @@ export function SmartProApp() {
                   }}
                 />
               </div>
-              <div className="flex items-start gap-2 border border-border bg-surface-soft p-3 text-[10px] text-muted-foreground">
+              <div className="flex items-start gap-2 border border-border bg-surface-soft p-3 text-[11px] text-muted-foreground">
                 <MapPin className="mt-0.5 size-3.5 shrink-0" />
                 <span>
                   Alamat dan waktu pengambilan akan dikonfirmasi tim SMartPro melalui WhatsApp
@@ -2418,13 +2481,13 @@ export function SmartProApp() {
               <div className="flex items-center justify-between gap-3 border border-border p-3">
                 <div>
                   <p className="text-xs font-semibold">Tingkat verifikasi</p>
-                  <p className="mt-1 text-[10px] text-muted-foreground">
+                  <p className="mt-1 text-[11px] text-muted-foreground">
                     {pricing.total > 5000000 || cartCount > 2
                       ? "Tier 2 · Nilai tinggi / lebih dari 2 unit"
                       : "Tier 1 · Reguler"}
                   </p>
                 </div>
-                <Badge variant="outline" className="text-[9px]">
+                <Badge variant="outline" className="text-[11px]">
                   {tier === "vip"
                     ? "VIP"
                     : tier === "verified" || kycFastPath
@@ -2437,7 +2500,7 @@ export function SmartProApp() {
                   <p className="flex items-center gap-2 text-xs font-semibold text-success">
                     <ShieldCheck className="size-4" /> Jalur cepat aktif
                   </p>
-                  <p className="mt-2 text-[10px] leading-relaxed text-success">
+                  <p className="mt-2 text-[11px] leading-relaxed text-success">
                     Data KYC lengkap tidak diperlukan untuk simulasi Verified Member. Admin akan
                     menghubungi kontak terverifikasi saat konfirmasi.
                   </p>
@@ -2536,8 +2599,8 @@ export function SmartProApp() {
                               <ImagePlus className="size-4" />
                             )}
                           </span>
-                          <span className="mt-2 block text-[10px] font-semibold">{label}</span>
-                          <span className="mt-1 block truncate text-[9px] text-muted-foreground">
+                          <span className="mt-2 block text-[11px] font-semibold">{label}</span>
+                          <span className="mt-1 block truncate text-[11px] text-muted-foreground">
                             {kycFiles[key]?.name ?? "Pilih foto"}
                           </span>
                           {kycFiles[key]?.preview && (
@@ -2584,14 +2647,14 @@ export function SmartProApp() {
                       onClick={() => setPaymentScheme(amount)}
                     >
                       <span className="wordmark text-xs">{amount}%</span>
-                      <span className="mt-1 text-[9px] font-normal">
+                      <span className="mt-1 text-[11px] font-normal">
                         {amount === "100" ? "Lunas" : `DP ${amount}%`}
                       </span>
                     </Button>
                   ))}
                 </div>
                 {tier === "vip" && (
-                  <p className="mt-2 text-[10px] text-gold-ink">
+                  <p className="mt-2 text-[11px] text-gold-ink">
                     Partner VIP mendapat pilihan DP 30%.
                   </p>
                 )}
@@ -2622,7 +2685,7 @@ export function SmartProApp() {
                     {formatRupiah(Math.ceil((pricing.total * Number(paymentScheme)) / 100))}
                   </strong>
                 </div>
-                <p className="mt-2 text-[9px] text-muted-foreground">
+                <p className="mt-2 text-[11px] text-muted-foreground">
                   Skema dan rincian pembayaran akan dikonfirmasi tim sebelum transaksi.
                 </p>
               </div>
@@ -2639,7 +2702,7 @@ export function SmartProApp() {
               <p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-muted-foreground">
                 Tim SMartPro akan menghubungi Anda untuk konfirmasi unit, dokumen, dan pembayaran.
               </p>
-              <div className="mx-auto mt-5 max-w-sm border border-border bg-surface-soft p-3 text-left text-[10px]">
+              <div className="mx-auto mt-5 max-w-sm border border-border bg-surface-soft p-3 text-left text-[11px]">
                 <p>
                   <span className="text-muted-foreground">Masa sewa</span> · {formatDate(startDate)}{" "}
                   s/d {formatDate(endDate)}
@@ -2718,7 +2781,7 @@ export function SmartProApp() {
                   (item) => (
                     <label
                       key={item}
-                      className="flex flex-1 items-center gap-2 border border-border p-2 text-[9px]"
+                      className="flex flex-1 items-center gap-2 border border-border p-2 text-[11px]"
                     >
                       <Checkbox
                         checked={bastChecked.includes(item)}
@@ -2748,7 +2811,7 @@ export function SmartProApp() {
                 <span className="mx-auto grid size-9 place-items-center rounded-full bg-card text-gold-ink">
                   {bastPhoto ? <Check className="size-4" /> : <Camera className="size-4" />}
                 </span>
-                <span className="mt-2 block text-[10px] font-semibold">
+                <span className="mt-2 block text-[11px] font-semibold">
                   {bastPhoto ? "Foto kondisi terlampir" : "Tambah foto kondisi alat"}
                 </span>
                 {bastPhoto && (
@@ -2759,7 +2822,7 @@ export function SmartProApp() {
                   />
                 )}
               </label>
-              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                 <Clock3 className="size-3.5" /> Dicatat {new Date().toLocaleString("id-ID")}
               </div>
               <DialogFooter>
@@ -2804,11 +2867,11 @@ export function SmartProApp() {
               </DialogHeader>
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div className="border border-border p-3">
-                  <p className="text-[9px] uppercase text-muted-foreground">WhatsApp</p>
+                  <p className="text-[11px] uppercase text-muted-foreground">WhatsApp</p>
                   <p className="mt-1 font-semibold">{kycDetail.phone}</p>
                 </div>
                 <div className="border border-border p-3">
-                  <p className="text-[9px] uppercase text-muted-foreground">Instagram</p>
+                  <p className="text-[11px] uppercase text-muted-foreground">Instagram</p>
                   <p className="mt-1 font-semibold">{kycDetail.instagram}</p>
                 </div>
               </div>
@@ -2819,7 +2882,7 @@ export function SmartProApp() {
                     className="grid min-h-24 place-items-center border border-border bg-surface-soft p-2 text-center"
                   >
                     <ImagePlus className="size-5 text-muted-foreground" />
-                    <span className="text-[9px]">
+                    <span className="text-[11px]">
                       {item}
                       <br />
                       Dokumen demo
@@ -2828,14 +2891,14 @@ export function SmartProApp() {
                 ))}
               </div>
               <div className="border border-border bg-surface-soft p-4">
-                <p className="text-[9px] uppercase text-muted-foreground">Tanda tangan digital</p>
+                <p className="text-[11px] uppercase text-muted-foreground">Tanda tangan digital</p>
                 <p className="mt-2 wordmark text-lg italic text-gold-ink">
                   {kycDetail.name.split(" ")[0]}
                 </p>
               </div>
               {kycDetail.status === "Menunggu" ? (
                 <>
-                  <label className="block text-[10px] font-semibold text-muted-foreground">
+                  <label className="block text-[11px] font-semibold text-muted-foreground">
                     Catatan alasan penolakan
                     <Input
                       value={rejectReason}
@@ -2909,7 +2972,7 @@ export function SmartProApp() {
               notify("Perangkat demo ditambahkan ke katalog.");
             }}
           >
-            <label className="block text-[10px] font-semibold text-muted-foreground">
+            <label className="block text-[11px] font-semibold text-muted-foreground">
               Nama perangkat
               <Input
                 value={newProductFields.name}
@@ -2921,7 +2984,7 @@ export function SmartProApp() {
               />
             </label>
             <div className="grid grid-cols-2 gap-3">
-              <label className="block text-[10px] font-semibold text-muted-foreground">
+              <label className="block text-[11px] font-semibold text-muted-foreground">
                 Kategori
                 <Select
                   value={newProductFields.category}
@@ -2942,7 +3005,7 @@ export function SmartProApp() {
                   </SelectContent>
                 </Select>
               </label>
-              <label className="text-[10px] font-semibold text-muted-foreground">
+              <label className="text-[11px] font-semibold text-muted-foreground">
                 Tarif harian
                 <Input
                   type="number"
@@ -2955,7 +3018,7 @@ export function SmartProApp() {
                 />
               </label>
             </div>
-            <label className="block text-[10px] font-semibold text-muted-foreground">
+            <label className="block text-[11px] font-semibold text-muted-foreground">
               Jumlah unit
               <Input
                 type="number"
@@ -3011,7 +3074,9 @@ function StatusPill({ status }: { status: string }) {
         ? "border-success/20 bg-success-soft text-success"
         : "border-alert/20 bg-alert-soft text-alert";
   return (
-    <span className={`inline-flex rounded-full border px-2 py-1 text-[9px] font-semibold ${color}`}>
+    <span
+      className={`inline-flex rounded-full border px-2 py-1 text-[11px] font-semibold ${color}`}
+    >
       {status}
     </span>
   );
@@ -3035,81 +3100,83 @@ function ScheduleTable({
       </div>
     );
   return (
-    <div className="overflow-x-auto border border-border bg-card">
-      <table className="w-full min-w-[780px] text-left text-xs">
-        <thead className="bg-surface-soft text-[9px] uppercase tracking-[0.08em] text-muted-foreground">
-          <tr>
-            <th className="px-3 py-3">Booking / klien</th>
-            <th className="px-3 py-3">Unit & serial</th>
-            <th className="px-3 py-3">Agenda</th>
-            <th className="px-3 py-3">Status</th>
-            <th className="px-3 py-3 text-right">Aksi</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((entry) => (
-            <tr key={entry.id} className="border-t border-border">
-              <td className="px-3 py-3">
-                <p className="wordmark text-[9px] font-semibold">{entry.id}</p>
-                <p className="mt-1 text-[10px]">{entry.customer}</p>
-              </td>
-              <td className="px-3 py-3">
-                <p>{entry.product}</p>
-                <p className="mt-1 font-mono text-[9px] text-muted-foreground">{entry.serial}</p>
-              </td>
-              <td className="px-3 py-3">
-                <span className="font-semibold">{entry.kind}</span>
-                <p className="mt-1 text-[10px] text-muted-foreground">{formatDate(entry.date)}</p>
-              </td>
-              <td className="px-3 py-3">
-                <StatusPill status={entry.status} />
-              </td>
-              <td className="px-3 py-3">
-                <div className="flex justify-end gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-8"
-                    title="Buka checklist BAST"
-                    aria-label={`Checklist BAST ${entry.id}`}
-                    onClick={() => onChecklist(entry)}
-                  >
-                    <ClipboardCheck className="size-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-8"
-                    title="Pengingat WhatsApp"
-                    aria-label={`Pengingat WhatsApp ${entry.id}`}
-                    onClick={() => onWa(entry)}
-                  >
-                    <Headphones className="size-3.5" />
-                  </Button>
-                  {entry.kind === "Pick-Up" && entry.status === "Menunggu" && (
-                    <Button
-                      size="sm"
-                      className="h-8 px-2 text-[9px]"
-                      onClick={() => onMark(entry, "Diambil")}
-                    >
-                      Tandai diambil
-                    </Button>
-                  )}
-                  {entry.kind === "Return" && entry.status === "Menunggu" && (
-                    <Button
-                      size="sm"
-                      className="h-8 px-2 text-[9px]"
-                      onClick={() => onMark(entry, "Dikembalikan")}
-                    >
-                      Tandai kembali
-                    </Button>
-                  )}
-                </div>
-              </td>
+    <div className="scroll-fade">
+      <div className="table-scroll overflow-x-auto border border-border bg-card">
+        <table className="w-full min-w-[780px] text-left text-xs">
+          <thead className="bg-surface-soft text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+            <tr>
+              <th className="px-3 py-3">Booking / klien</th>
+              <th className="px-3 py-3">Unit & serial</th>
+              <th className="px-3 py-3">Agenda</th>
+              <th className="px-3 py-3">Status</th>
+              <th className="px-3 py-3 text-right">Aksi</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((entry) => (
+              <tr key={entry.id} className="border-t border-border">
+                <td className="px-3 py-3">
+                  <p className="wordmark text-[11px] font-semibold">{entry.id}</p>
+                  <p className="mt-1 text-[11px]">{entry.customer}</p>
+                </td>
+                <td className="px-3 py-3">
+                  <p>{entry.product}</p>
+                  <p className="mt-1 font-mono text-[11px] text-muted-foreground">{entry.serial}</p>
+                </td>
+                <td className="px-3 py-3">
+                  <span className="font-semibold">{entry.kind}</span>
+                  <p className="mt-1 text-[11px] text-muted-foreground">{formatDate(entry.date)}</p>
+                </td>
+                <td className="px-3 py-3">
+                  <StatusPill status={entry.status} />
+                </td>
+                <td className="px-3 py-3">
+                  <div className="flex justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8"
+                      title="Buka checklist BAST"
+                      aria-label={`Checklist BAST ${entry.id}`}
+                      onClick={() => onChecklist(entry)}
+                    >
+                      <ClipboardCheck className="size-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8"
+                      title="Pengingat WhatsApp"
+                      aria-label={`Pengingat WhatsApp ${entry.id}`}
+                      onClick={() => onWa(entry)}
+                    >
+                      <Headphones className="size-3.5" />
+                    </Button>
+                    {entry.kind === "Pick-Up" && entry.status === "Menunggu" && (
+                      <Button
+                        size="sm"
+                        className="h-8 px-2 text-[11px]"
+                        onClick={() => onMark(entry, "Diambil")}
+                      >
+                        Tandai diambil
+                      </Button>
+                    )}
+                    {entry.kind === "Return" && entry.status === "Menunggu" && (
+                      <Button
+                        size="sm"
+                        className="h-8 px-2 text-[11px]"
+                        onClick={() => onMark(entry, "Dikembalikan")}
+                      >
+                        Tandai kembali
+                      </Button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -3140,7 +3207,7 @@ function ChoiceCard({
       </span>
       <span>
         <span className="block text-xs font-semibold">{title}</span>
-        <span className="mt-1 block text-[10px] text-muted-foreground">{subtitle}</span>
+        <span className="mt-1 block text-[11px] text-muted-foreground">{subtitle}</span>
       </span>
     </button>
   );
@@ -3148,7 +3215,7 @@ function ChoiceCard({
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="block text-[10px] font-semibold text-muted-foreground">
+    <label className="block text-[11px] font-semibold text-muted-foreground">
       {label}
       {children}
     </label>

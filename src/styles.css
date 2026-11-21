@@ -189,12 +189,22 @@
 @media (max-width: 640px) {
   .smartpro-app button,
   .smartpro-app [role="button"],
-  .smartpro-app [role="switch"],
   .smartpro-app select,
   .smartpro-app input[type="checkbox"],
   .smartpro-app a[href] {
     min-height: 2.75rem;
     min-width: 2.75rem;
+  }
+
+  /* A switch is a pill: forcing min-width: 2.75rem onto the track stretches it
+   * from 36x20 into a 44x44 blob, and the thumb -- once -- still only slides
+   * 16px, so at rest it sits inside a control twice its width and the "on/off"
+   * read is lost. The track keeps its own proportions; the 44x44 touch target
+   * comes from the padding below, which the visually-hidden hit area provides
+   * without distorting the shape. */
+  .smartpro-app [role="switch"] {
+    min-width: 0;
+    min-height: 0;
   }
 }
 
@@ -203,7 +213,34 @@
     border-color: var(--color-border);
   }
 
+  /* Pin the page to a single horizontal axis.
+
+   * Without this the document still *accepts* horizontal overscroll: on a
+   * touch device, dragging the page sideways rubber-bands the whole viewport
+   * past its own bounds and the area revealed underneath is painted by the
+   * root element -- which is unstyled -- so it shows as a bare white gutter.
+   *
+   * overflow-x: clip removes that scroll axis entirely, so the page cannot be
+   * dragged sideways at all. clip is used instead of hidden because hidden
+   * still creates a scroll container (and would break position: sticky and
+   * programmatic scrolling); clip does not.
+   *
+   * overscroll-behavior-x: none additionally tells the browser not to chain a
+   * sideways swipe into history navigation, which is the other way a
+   * left/right drag can move the page out from under the user.
+   *
+   * background on html matters: when an ancestor paints no colour, the
+   * viewport canvas falls back to white. Painting here keeps any remaining
+   * overscroll dance on the theme colour instead of flashing white. */
+  html {
+    overflow-x: clip;
+    overscroll-behavior-x: none;
+    background-color: var(--color-background);
+  }
+
   body {
+    overflow-x: clip;
+    overscroll-behavior-x: none;
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-family-sans);
@@ -312,9 +349,104 @@
 .section-label {
   color: var(--color-gold-ink);
   font-family: var(--font-family-display);
-  font-size: 0.65rem;
+  font-size: 0.6875rem;
   letter-spacing: 0;
   text-transform: uppercase;
+}
+
+/* Horizontal scroll affordance, two variants.
+
+ * 1. .chips-fade -- a mask. The chip row sits directly on the page background
+ *    and its buttons are opaque, so an overlaid gradient would tint the button
+ *    instead of dissolving it. A mask erases the actual pixels, which is the
+ *    only way the fade reads as "content continues" rather than "grey film".
+ * 2. .scroll-fade -- an overlay gradient for table wrappers, which sit on a
+ *    card surface where a gradient blends cleanly. */
+.chips-scroll,
+.table-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+.chips-fade {
+  --chips-fade-size: 2rem;
+  /* Only the right edge fades by default: that is where hidden content is.
+   * The left edge gets its own fade once the row has been scrolled, which is
+   * handled below via the data-start flag. */
+  -webkit-mask-image: linear-gradient(
+    to right,
+    #000 0,
+    #000 calc(100% - var(--chips-fade-size)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    #000 0,
+    #000 calc(100% - var(--chips-fade-size)),
+    transparent 100%
+  );
+}
+
+/* Scrolled past the start: fade the left edge too, so the row reads as having
+ * content in both directions instead of looking abruptly cut at the container. */
+.chips-fade[data-start="false"] {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--chips-fade-size),
+    #000 calc(100% - var(--chips-fade-size)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--chips-fade-size),
+    #000 calc(100% - var(--chips-fade-size)),
+    transparent 100%
+  );
+}
+
+/* Nothing left to reveal on the right: keep only the left fade (if any). */
+.chips-fade[data-more="false"] {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--chips-fade-size));
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--chips-fade-size));
+}
+
+/* Parked at the start and nothing overflows: no fades at all. */
+.chips-fade[data-more="false"][data-start="true"] {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+.scroll-fade {
+  position: relative;
+}
+
+.scroll-fade::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 2rem;
+  pointer-events: none;
+  background: linear-gradient(
+    to right,
+    transparent,
+    color-mix(in oklab, currentColor 18%, transparent)
+  );
+}
+
+@media (min-width: 1024px) {
+  /* Roomier viewports fit the content; the affordance would only be noise. */
+  .chips-fade {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .scroll-fade::after {
+    display: none;
+  }
 }
 
 .smartpro-drawer-scroll {
