@@ -60,6 +60,7 @@ export type User = {
   } | null;
   points: number;
   isVip: boolean;
+  wishlist: string[];
   kycNote?: string;
 };
 
@@ -109,6 +110,9 @@ export type Transaction = {
   remainingAmount: number;
   method: PaymentMethod;
   uniqueCode: number;
+  voucherCode?: string;
+  voucherDiscount?: number;
+  vipDiscount?: number;
   status: "Menunggu Pembayaran" | "DP Terbayar" | "Lunas" | "Selesai" | "Dibatalkan";
   pickupStatus: "Belum" | "Diambil" | "Dikembalikan";
   createdAt: string;
@@ -152,6 +156,14 @@ export type ExtendRequest = {
   createdAt: string;
 };
 
+export type WaTemplates = {
+  booking: string;
+  dp: string;
+  lunas: string;
+  reminder: string;
+  extend: string;
+};
+
 export type AdminSettings = {
   minRupiahReward: number;
   poinPerKelipatan: number;
@@ -159,6 +171,20 @@ export type AdminSettings = {
   rupiahPerPoin: number;
   overtimeFee12h: number;
   whatsappAdmin: string;
+  vipDiscountPercent: number;
+  waTemplates: WaTemplates;
+};
+
+export type VoucherType = "percent" | "fixed";
+
+export type Voucher = {
+  id: string;
+  code: string;
+  type: VoucherType;
+  value: number;
+  minSpend: number;
+  active: boolean;
+  expiresAt: string;
 };
 
 export const DEFAULT_SETTINGS: AdminSettings = {
@@ -168,6 +194,17 @@ export const DEFAULT_SETTINGS: AdminSettings = {
   rupiahPerPoin: 500,
   overtimeFee12h: 50000,
   whatsappAdmin: "6281200000000",
+  vipDiscountPercent: 10,
+  waTemplates: {
+    booking:
+      "Halo {nama}, booking {kode} di SMartPro sudah kami terima. Total {total}. Silakan lanjutkan pembayaran.",
+    dp: "Halo {nama}, pembayaran DP untuk {kode} sudah kami terima. Sisa pelunasan {total}.",
+    lunas: "Halo {nama}, pembayaran {kode} sudah LUNAS. Terima kasih telah menyewa di SMartPro.",
+    reminder:
+      "Halo {nama}, pengingat pengembalian untuk {kode}. Mohon kembalikan tepat waktu agar tidak kena denda overtime.",
+    extend:
+      "Halo {nama}, perpanjangan {kode} disetujui. Silakan lunasi biaya perpanjangan sebesar {total}.",
+  },
 };
 
 export const INITIAL_PRODUCTS: Product[] = [
@@ -401,6 +438,22 @@ export function computeRewardPoints(amount: number, settings: AdminSettings): nu
 export function computePointsDiscount(points: number, settings: AdminSettings): number {
   if (points < settings.minPoinTukar) return 0;
   return points * settings.rupiahPerPoin;
+}
+
+// Returns the discount amount for a voucher, or 0 if it cannot be applied.
+export function applyVoucher(subtotal: number, voucher: Voucher | null, nowISO: string): number {
+  if (!voucher || !voucher.active) return 0;
+  if (voucher.expiresAt && nowISO > voucher.expiresAt) return 0;
+  if (subtotal < voucher.minSpend) return 0;
+  if (voucher.type === "percent") {
+    return Math.round((subtotal * Math.min(100, Math.max(0, voucher.value))) / 100);
+  }
+  return Math.min(subtotal, Math.max(0, voucher.value));
+}
+
+export function findVoucher(vouchers: Voucher[], code: string): Voucher | null {
+  const normalized = code.trim().toUpperCase();
+  return vouchers.find((v) => v.code.toUpperCase() === normalized) ?? null;
 }
 
 export function genUniqueCode(seed?: number): number {

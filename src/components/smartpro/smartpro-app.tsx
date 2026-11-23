@@ -273,6 +273,11 @@ export function SmartProApp() {
                     product={product}
                     startDate={startDate}
                     endDate={endDate}
+                    onSelectRange={(s, e) => {
+                      setStartDate(s);
+                      setEndDate(e);
+                    }}
+                    onRequireLogin={() => setAuthOpen(true)}
                   />
                 ))}
               </div>

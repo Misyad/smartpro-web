@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { PackageCheck, CornerDownLeft, Clock3, Send } from "lucide-react";
+import { PackageCheck, CornerDownLeft, Clock3, Send, FileText } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -21,12 +21,14 @@ import {
 import { formatRupiah, formatDate } from "@/lib/smartpro-format";
 import { EmptyState, StatusPill } from "./ui";
 import { MultiImageUpload } from "./image-upload";
+import { InvoiceModal } from "./invoice-modal";
 
 export function CustomerRentals() {
   const { state, currentUser } = useStore();
   const [returnFor, setReturnFor] = useState<string | null>(null);
   const [extendFor, setExtendFor] = useState<string | null>(null);
   const [payExtendId, setPayExtendId] = useState<string | null>(null);
+  const [invoiceFor, setInvoiceFor] = useState<string | null>(null);
 
   if (!currentUser) return null;
   const myTransactions = state.transactions.filter((t) => t.customerId === currentUser.id);
@@ -105,6 +107,14 @@ export function CustomerRentals() {
                       size="sm"
                       variant="outline"
                       className="h-9 rounded-full text-[10px]"
+                      onClick={() => setInvoiceFor(t.id)}
+                    >
+                      <FileText className="size-3.5" /> Invoice
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-9 rounded-full text-[10px]"
                       disabled={!!openExtend || t.status === "Selesai"}
                       onClick={() => setExtendFor(t.id)}
                     >
@@ -130,6 +140,77 @@ export function CustomerRentals() {
       {extendFor && <ExtendModal transactionId={extendFor} onClose={() => setExtendFor(null)} />}
       {payExtendId && (
         <PayExtendModal extendId={payExtendId} onClose={() => setPayExtendId(null)} />
+      )}
+      {invoiceFor && (
+        <InvoiceModal
+          transaction={state.transactions.find((t) => t.id === invoiceFor) ?? null}
+          onClose={() => setInvoiceFor(null)}
+        />
+      )}
+
+      <WishlistSection />
+    </div>
+  );
+}
+
+function WishlistSection() {
+  const { state, currentUser, dispatch } = useStore();
+  if (!currentUser) return null;
+  const wished = state.products.filter((p) => currentUser.wishlist.includes(p.id));
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <p className="section-label">Disimpan</p>
+        <h2 className="wordmark mt-1 text-lg font-semibold">Wishlist Saya</h2>
+      </div>
+      {wished.length === 0 ? (
+        <EmptyState title="Wishlist kosong" note="Tandai perangkat dengan ikon hati di katalog." />
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {wished.map((p) => (
+            <div key={p.id} className="border border-border bg-card p-3">
+              <p className="text-xs font-semibold">{p.name}</p>
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                12j {formatRupiah(p.price12h)} / 24j {formatRupiah(p.price24h)}
+              </p>
+              <div className="mt-2 flex gap-2">
+                <Button
+                  size="sm"
+                  className="h-9 rounded-full text-[10px]"
+                  disabled={!p.active12h && !p.active24h}
+                  onClick={() => {
+                    const duration = p.active12h ? "12h" : "24h";
+                    dispatch({
+                      type: "addToCart",
+                      line: {
+                        key: `product:${p.id}:${duration}`,
+                        name: `${p.name} (${duration === "12h" ? "12 Jam" : "24 Jam"})`,
+                        duration,
+                        price: duration === "12h" ? p.price12h : p.price24h,
+                        quantity: 1,
+                        rewardPoints: p.rewardPoints,
+                        productId: p.id,
+                      },
+                    });
+                  }}
+                >
+                  Tambah ke Tas
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-9 rounded-full text-[10px] text-alert"
+                  onClick={() =>
+                    dispatch({ type: "toggleWishlist", userId: currentUser.id, productId: p.id })
+                  }
+                >
+                  Hapus
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

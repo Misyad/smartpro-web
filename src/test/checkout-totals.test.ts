@@ -45,4 +45,52 @@ describe("checkout totals", () => {
     // 2 x 15 product points = 30; floor(190000/150000)*10 = 10 -> 40
     expect(totals.rewardPoints).toBe(40);
   });
+
+  it("applies a percent voucher before points and VIP", () => {
+    const totals = computeCheckoutTotals(lines, 0, settings, {
+      voucher: {
+        id: "v1",
+        code: "HOLIDAY10",
+        type: "percent",
+        value: 10,
+        minSpend: 100000,
+        active: true,
+        expiresAt: "2099-12-31",
+      },
+      nowISO: "2026-01-01",
+    });
+    // 10% of 190000 = 19000
+    expect(totals.voucherDiscount).toBe(19000);
+    expect(totals.total).toBe(171000);
+  });
+
+  it("ignores an expired voucher", () => {
+    const totals = computeCheckoutTotals(lines, 0, settings, {
+      voucher: {
+        id: "v2",
+        code: "OLD",
+        type: "fixed",
+        value: 50000,
+        minSpend: 0,
+        active: true,
+        expiresAt: "2020-01-01",
+      },
+      nowISO: "2026-01-01",
+    });
+    expect(totals.voucherDiscount).toBe(0);
+  });
+
+  it("applies Mitra VIP percent on top of the voucher", () => {
+    const totals = computeCheckoutTotals(
+      lines,
+      0,
+      { ...settings, vipDiscountPercent: 10 },
+      {
+        isVip: true,
+      },
+    );
+    // 10% of 190000 = 19000
+    expect(totals.vipDiscount).toBe(19000);
+    expect(totals.total).toBe(171000);
+  });
 });

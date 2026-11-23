@@ -12,6 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useStore } from "@/lib/smartpro-store";
 import {
+  findVoucher,
   genUniqueCode,
   type PaymentMethod,
   type PaymentRecord,
@@ -36,15 +37,50 @@ export function CheckoutModal({
   const [proof, setProof] = useState<string | null>(null);
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
   const [done, setDone] = useState<Transaction | null>(null);
+  const [voucherCode, setVoucherCode] = useState("");
+  const [voucherError, setVoucherError] = useState("");
+
+  const activeVoucher = useMemo(() => {
+    const found = findVoucher(state.vouchers, voucherCode);
+    if (!found || !found.active) return null;
+    return found;
+  }, [state.vouchers, voucherCode]);
 
   const totals = useMemo(
-    () => computeCheckoutTotals(state.cart, pointsToRedeem, state.settings),
-    [state.cart, pointsToRedeem, state.settings],
+    () =>
+      computeCheckoutTotals(state.cart, pointsToRedeem, state.settings, {
+        voucher: activeVoucher,
+        isVip: currentUser?.isVip,
+        nowISO: new Date().toISOString().slice(0, 10),
+      }),
+    [state.cart, pointsToRedeem, state.settings, activeVoucher, currentUser?.isVip],
   );
 
   if (!currentUser) return null;
 
   const payingAmount = stage === "DP" ? totals.dpAmount : totals.remainingAmount;
+
+  const applyVoucherCode = () => {
+    const found = findVoucher(state.vouchers, voucherCode);
+    if (!found) {
+      setVoucherError("Kode voucher tidak ditemukan.");
+      return;
+    }
+    if (!found.active) {
+      setVoucherError("Voucher tidak aktif.");
+      return;
+    }
+    const now = new Date().toISOString().slice(0, 10);
+    if (found.expiresAt && now > found.expiresAt) {
+      setVoucherError("Voucher sudah kedaluwarsa.");
+      return;
+    }
+    if (totals.subtotal < found.minSpend) {
+      setVoucherError(`Minimal belanja ${formatRupiah(found.minSpend)} untuk voucher ini.`);
+      return;
+    }
+    setVoucherError("");
+  };
 
   const reset = () => {
     setMethod("transfer");
@@ -52,6 +88,8 @@ export function CheckoutModal({
     setProof(null);
     setPointsToRedeem(0);
     setDone(null);
+    setVoucherCode("");
+    setVoucherError("");
   };
 
   const submit = () => {
@@ -84,6 +122,9 @@ export function CheckoutModal({
       remainingAmount: totals.remainingAmount,
       method,
       uniqueCode,
+      voucherCode: activeVoucher?.code,
+      voucherDiscount: totals.voucherDiscount,
+      vipDiscount: totals.vipDiscount,
       status: "Menunggu Pembayaran",
       pickupStatus: "Belum",
       createdAt: new Date().toISOString(),
@@ -171,6 +212,40 @@ export function CheckoutModal({
               ))}
             </div>
 
+            <div className="border border-border bg-surface-soft p-3">
+              <p className="text-[10px] font-semibold uppercase text-muted-foreground">
+                Kode voucher
+              </p>
+              <div className="mt-1 flex gap-2">
+                <Input
+                  value={voucherCode}
+                  onChange={(e) => {
+                    setVoucherCode(e.target.value.toUpperCase());
+                    setVoucherError("");
+                  }}
+                  placeholder="Contoh: HOLIDAY10"
+                  className="h-9 flex-1 text-xs"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-9 text-[10px]"
+                  onClick={applyVoucherCode}
+                >
+                  Pakai
+                </Button>
+              </div>
+              {voucherError && (
+                <p className="mt-1 text-[10px] font-semibold text-alert">{voucherError}</p>
+              )}
+              {totals.voucherDiscount > 0 && (
+                <p className="mt-1 text-[10px] font-semibold text-success">
+                  Voucher {activeVoucher?.code} diterapkan (-{formatRupiah(totals.voucherDiscount)}
+                  ).
+                </p>
+              )}
+            </div>
+
             {currentUser.points >= state.settings.minPoinTukar && (
               <div className="border border-gold/30 bg-amber-soft p-3">
                 <label className="flex items-center justify-between gap-2 text-[11px]">
@@ -204,6 +279,18 @@ export function CheckoutModal({
                 <span className="text-muted-foreground">Subtotal</span>
                 <span>{formatRupiah(totals.subtotal)}</span>
               </div>
+              {totals.voucherDiscount > 0 && (
+                <div className="mt-1 flex justify-between text-success">
+                  <span>Voucher {activeVoucher?.code}</span>
+                  <span>-{formatRupiah(totals.voucherDiscount)}</span>
+                </div>
+              )}
+              {totals.vipDiscount > 0 && (
+                <div className="mt-1 flex justify-between text-gold-ink">
+                  <span>Diskon Mitra VIP ({state.settings.vipDiscountPercent}%)</span>
+                  <span>-{formatRupiah(totals.vipDiscount)}</span>
+                </div>
+              )}
               {totals.pointsDiscount > 0 && (
                 <div className="mt-1 flex justify-between text-success">
                   <span>Potongan poin</span>

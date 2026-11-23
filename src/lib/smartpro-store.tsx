@@ -22,6 +22,7 @@ import {
   type ScheduleEntry,
   type Transaction,
   type User,
+  type Voucher,
 } from "@/lib/smartpro-data";
 import {
   SEED_EXTENDS,
@@ -30,9 +31,10 @@ import {
   SEED_SCHEDULE,
   SEED_TRANSACTIONS,
   SEED_USERS,
+  SEED_VOUCHERS,
 } from "@/lib/smartpro-seed";
 
-const STORAGE_KEY = "smartpro-state-v4";
+const STORAGE_KEY = "smartpro-state-v5";
 
 export type CartLine = {
   key: string;
@@ -58,6 +60,7 @@ export type AppState = {
   extends: ExtendRequest[];
   schedule: ScheduleEntry[];
   settings: AdminSettings;
+  vouchers: Voucher[];
 };
 
 export const DEMO_CREDENTIALS = {
@@ -77,6 +80,7 @@ export const INITIAL_USERS: User[] = [
     kyc: null,
     points: 0,
     isVip: false,
+    wishlist: [],
   },
   {
     id: "u-pelanggan",
@@ -98,6 +102,7 @@ export const INITIAL_USERS: User[] = [
     },
     points: 320,
     isVip: false,
+    wishlist: [],
   },
   {
     id: "u-baru",
@@ -110,6 +115,7 @@ export const INITIAL_USERS: User[] = [
     kyc: null,
     points: 0,
     isVip: false,
+    wishlist: [],
   },
   ...SEED_USERS,
 ];
@@ -126,6 +132,7 @@ const INITIAL_STATE: AppState = {
   extends: SEED_EXTENDS,
   schedule: SEED_SCHEDULE,
   settings: DEFAULT_SETTINGS,
+  vouchers: SEED_VOUCHERS,
 };
 
 type Action =
@@ -135,6 +142,10 @@ type Action =
   | { type: "updateUser"; userId: string; patch: Partial<User> }
   | { type: "setKycStatus"; userId: string; status: User["kycStatus"]; note?: string }
   | { type: "setVip"; userId: string; isVip: boolean }
+  | { type: "toggleWishlist"; userId: string; productId: string }
+  | { type: "addVoucher"; voucher: Voucher }
+  | { type: "toggleVoucher"; voucherId: string }
+  | { type: "removeVoucher"; voucherId: string }
   | { type: "setProducts"; products: Product[] }
   | { type: "addProduct"; product: Product }
   | { type: "updateProduct"; productId: string; patch: Partial<Product> }
@@ -188,6 +199,31 @@ function reducer(state: AppState, action: Action): AppState {
         ...state,
         users: state.users.map((u) => (u.id === action.userId ? { ...u, isVip: action.isVip } : u)),
       };
+    case "toggleWishlist":
+      return {
+        ...state,
+        users: state.users.map((u) =>
+          u.id === action.userId
+            ? {
+                ...u,
+                wishlist: u.wishlist.includes(action.productId)
+                  ? u.wishlist.filter((id) => id !== action.productId)
+                  : [...u.wishlist, action.productId],
+              }
+            : u,
+        ),
+      };
+    case "addVoucher":
+      return { ...state, vouchers: [action.voucher, ...state.vouchers] };
+    case "toggleVoucher":
+      return {
+        ...state,
+        vouchers: state.vouchers.map((v) =>
+          v.id === action.voucherId ? { ...v, active: !v.active } : v,
+        ),
+      };
+    case "removeVoucher":
+      return { ...state, vouchers: state.vouchers.filter((v) => v.id !== action.voucherId) };
     case "setProducts":
       return { ...state, products: action.products };
     case "addProduct":

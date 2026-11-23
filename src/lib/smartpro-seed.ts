@@ -7,6 +7,7 @@ import {
   type Transaction,
   type TransactionLine,
   type User,
+  type Voucher,
 } from "@/lib/smartpro-data";
 
 const iso = (daysFromNow: number, hour = 10): string => {
@@ -49,6 +50,7 @@ export const SEED_USERS: User[] = [
     },
     points: 120,
     isVip: false,
+    wishlist: ["sony-a6400"],
   },
   {
     id: "u-salsa",
@@ -70,6 +72,7 @@ export const SEED_USERS: User[] = [
     },
     points: 640,
     isVip: true,
+    wishlist: ["cosmo-c2", "atem-mini"],
   },
 ];
 
@@ -218,3 +221,33 @@ export const SEED_SCHEDULE: ScheduleEntry[] = [
 ];
 
 export const SEED_KYC_PENDING: ApprovalStatus = "Menunggu";
+
+export const SEED_VOUCHERS: Voucher[] = [
+  {
+    id: "v-holiday10",
+    code: "HOLIDAY10",
+    type: "percent",
+    value: 10,
+    minSpend: 100000,
+    active: true,
+    expiresAt: day(60),
+  },
+  {
+    id: "v-hemat50k",
+    code: "HEMAT50K",
+    type: "fixed",
+    value: 50000,
+    minSpend: 300000,
+    active: true,
+    expiresAt: day(60),
+  },
+  {
+    id: "v-expired",
+    code: "LAMA5",
+    type: "percent",
+    value: 5,
+    minSpend: 0,
+    active: true,
+    expiresAt: day(-1),
+  },
+];

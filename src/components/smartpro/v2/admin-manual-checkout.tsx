@@ -31,7 +31,10 @@ export function AdminManualCheckout() {
   const [stage, setStage] = useState<PaymentStage>("DP");
   const [done, setDone] = useState<string | null>(null);
 
-  const totals = computeCheckoutTotals(lines, 0, state.settings);
+  const selectedCustomer = state.users.find((u) => u.id === customerId);
+  const totals = computeCheckoutTotals(lines, 0, state.settings, {
+    isVip: selectedCustomer?.isVip,
+  });
 
   const addProductLine = (productId: string, duration: RentalDuration) => {
     const product = state.products.find((p) => p.id === productId);
@@ -88,6 +91,7 @@ export function AdminManualCheckout() {
       remainingAmount: totals.remainingAmount,
       method,
       uniqueCode,
+      vipDiscount: totals.vipDiscount,
       status: "Menunggu Pembayaran",
       pickupStatus: "Belum",
       createdAt: new Date().toISOString(),

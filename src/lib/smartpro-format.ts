@@ -29,3 +29,6 @@ export const buildWhatsappLink = (phone: string, message: string): string => {
   const normalized = phone.replace(/[^0-9]/g, "").replace(/^0/, "62");
   return `https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
 };
+
+export const renderTemplate = (template: string, vars: Record<string, string>): string =>
+  template.replace(/\{(\w+)\}/g, (_, key) => vars[key] ?? `{${key}}`);

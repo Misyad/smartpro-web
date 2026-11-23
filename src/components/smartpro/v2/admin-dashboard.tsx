@@ -11,13 +11,20 @@ import {
   X,
   Star,
   Phone,
+  Trash2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useStore } from "@/lib/smartpro-store";
-import { buildWhatsappLink, formatDate, formatDateTime, formatRupiah } from "@/lib/smartpro-format";
-import type { AdminSettings, Product, ProductCategory } from "@/lib/smartpro-data";
+import {
+  buildWhatsappLink,
+  formatDate,
+  formatDateTime,
+  formatRupiah,
+  renderTemplate,
+} from "@/lib/smartpro-format";
+import type { AdminSettings, Product, ProductCategory, Voucher } from "@/lib/smartpro-data";
 import { EmptyState, Field, StatCard, StatusPill } from "./ui";
 import { SingleImageUpload } from "./image-upload";
 import { AdminManualCheckout } from "./admin-manual-checkout";
@@ -30,6 +37,8 @@ const TABS = [
   "KYC",
   "Inventaris",
   "Checkout Manual",
+  "Voucher",
+  "Analitik",
   "Finance",
   "Pengaturan",
   "Pelanggan",
@@ -65,6 +74,8 @@ export function AdminDashboard() {
       {tab === "KYC" && <KycApprovals />}
       {tab === "Inventaris" && <InventoryManager />}
       {tab === "Checkout Manual" && <AdminManualCheckout />}
+      {tab === "Voucher" && <VoucherManager />}
+      {tab === "Analitik" && <Analytics />}
       {tab === "Finance" && <Finance />}
       {tab === "Pengaturan" && <SettingsPanel />}
       {tab === "Pelanggan" && <Customers />}
@@ -172,7 +183,16 @@ function PaymentApprovals() {
                     <a
                       href={buildWhatsappLink(
                         trx.customerPhone,
-                        `Halo ${trx.customerName}, status pembayaran ${trx.code} sedang ditinjau.`,
+                        renderTemplate(
+                          p.stage === "DP"
+                            ? state.settings.waTemplates.dp
+                            : state.settings.waTemplates.lunas,
+                          {
+                            nama: trx.customerName,
+                            kode: trx.code,
+                            total: formatRupiah(trx.remainingAmount),
+                          },
+                        ),
                       )}
                       target="_blank"
                       rel="noreferrer"
@@ -654,7 +674,48 @@ function SettingsPanel() {
             className="h-9 text-sm"
           />
         </Field>
+        <Field label="Diskon Mitra VIP (%)">
+          <Input
+            type="number"
+            min={0}
+            max={100}
+            value={form.vipDiscountPercent}
+            onChange={(e) => set({ vipDiscountPercent: Number(e.target.value) || 0 })}
+            className="h-9 text-sm"
+          />
+        </Field>
       </div>
+
+      <div className="border-t border-border pt-3">
+        <p className="text-xs font-semibold">Template WhatsApp Otomatis</p>
+        <p className="mt-0.5 text-[10px] text-muted-foreground">
+          Placeholder: {"{nama}"}, {"{kode}"}, {"{total}"}.
+        </p>
+        <div className="mt-2 space-y-2">
+          {(
+            [
+              ["booking", "Booking dibuat"],
+              ["dp", "DP diterima"],
+              ["lunas", "Lunas"],
+              ["reminder", "Pengingat kembali"],
+              ["extend", "Perpanjangan"],
+            ] as [keyof AdminSettings["waTemplates"], string][]
+          ).map(([key, label]) => (
+            <label key={key} className="block text-[10px] font-semibold text-muted-foreground">
+              {label}
+              <textarea
+                value={form.waTemplates[key]}
+                onChange={(e) =>
+                  set({ waTemplates: { ...form.waTemplates, [key]: e.target.value } })
+                }
+                rows={2}
+                className="mt-1 w-full border border-input bg-background px-2 py-1.5 text-[11px]"
+              />
+            </label>
+          ))}
+        </div>
+      </div>
+
       <Button
         className="w-full rounded-full"
         onClick={() => dispatch({ type: "updateSettings", patch: form })}
@@ -675,7 +736,6 @@ function Customers() {
       {state.users
         .filter((u) => u.role === "pelanggan")
         .map((u) => {
-          const tier = u.isVip ? "Mitra VIP" : u.kycStatus === "Verified" ? "Verified" : null;
           return (
             <div
               key={u.id}
@@ -729,6 +789,253 @@ function Customers() {
             </div>
           );
         })}
+    </div>
+  );
+}
+
+function VoucherManager() {
+  const { state, dispatch } = useStore();
+  const [form, setForm] = useState({
+    code: "",
+    type: "percent" as Voucher["type"],
+    value: "10",
+    minSpend: "0",
+    expiresAt: "",
+  });
+  const [error, setError] = useState("");
+
+  const add = () => {
+    const code = form.code.trim().toUpperCase();
+    if (!code || !Number(form.value)) {
+      setError("Kode dan nilai voucher wajib diisi.");
+      return;
+    }
+    setError("");
+    dispatch({
+      type: "addVoucher",
+      voucher: {
+        id: `v-${Date.now()}`,
+        code,
+        type: form.type,
+        value: Number(form.value),
+        minSpend: Number(form.minSpend) || 0,
+        active: true,
+        expiresAt: form.expiresAt || "2099-12-31",
+      },
+    });
+    setForm({ code: "", type: "percent", value: "10", minSpend: "0", expiresAt: "" });
+  };
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-[1fr_1.3fr]">
+      <div className="border border-border bg-card p-4">
+        <p className="text-sm font-semibold">Tambah Voucher</p>
+        <div className="mt-3 space-y-2">
+          <Field label="Kode">
+            <Input
+              value={form.code}
+              onChange={(e) => setForm((c) => ({ ...c, code: e.target.value }))}
+              className="h-9 text-sm"
+            />
+          </Field>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Tipe">
+              <select
+                value={form.type}
+                onChange={(e) =>
+                  setForm((c) => ({ ...c, type: e.target.value as Voucher["type"] }))
+                }
+                className="h-9 w-full border border-input bg-background px-2 text-sm"
+              >
+                <option value="percent">Persen (%)</option>
+                <option value="fixed">Nominal (Rp)</option>
+              </select>
+            </Field>
+            <Field label="Nilai">
+              <Input
+                type="number"
+                value={form.value}
+                onChange={(e) => setForm((c) => ({ ...c, value: e.target.value }))}
+                className="h-9 text-sm"
+              />
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Min. belanja">
+              <Input
+                type="number"
+                value={form.minSpend}
+                onChange={(e) => setForm((c) => ({ ...c, minSpend: e.target.value }))}
+                className="h-9 text-sm"
+              />
+            </Field>
+            <Field label="Kedaluwarsa">
+              <Input
+                type="date"
+                value={form.expiresAt}
+                onChange={(e) => setForm((c) => ({ ...c, expiresAt: e.target.value }))}
+                className="h-9 text-sm"
+              />
+            </Field>
+          </div>
+          {error && (
+            <p
+              role="alert"
+              className="border border-alert/30 bg-alert-soft p-2 text-[11px] font-semibold text-alert"
+            >
+              {error}
+            </p>
+          )}
+          <Button className="w-full rounded-full" onClick={add}>
+            Simpan voucher
+          </Button>
+        </div>
+      </div>
+      <div className="space-y-2">
+        {state.vouchers.map((v) => (
+          <div
+            key={v.id}
+            className="flex flex-wrap items-center justify-between gap-2 border border-border bg-card p-3 text-xs"
+          >
+            <div>
+              <p className="font-semibold">{v.code}</p>
+              <p className="text-[10px] text-muted-foreground">
+                {v.type === "percent" ? `${v.value}%` : formatRupiah(v.value)} - min{" "}
+                {formatRupiah(v.minSpend)} - exp {v.expiresAt}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <StatusPill status={v.active ? "Disetujui" : "Ditolak"} />
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 rounded-full text-[10px]"
+                onClick={() => dispatch({ type: "toggleVoucher", voucherId: v.id })}
+              >
+                {v.active ? "Nonaktifkan" : "Aktifkan"}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="size-8 text-alert"
+                aria-label={`Hapus ${v.code}`}
+                onClick={() => dispatch({ type: "removeVoucher", voucherId: v.id })}
+              >
+                <Trash2 className="size-3.5" />
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Analytics() {
+  const { state } = useStore();
+  const approved = state.payments.filter((p) => p.status === "Disetujui");
+  const totalRevenue = approved.reduce((s, p) => s + p.amount, 0);
+
+  const byProduct = useMemo(() => {
+    const map = new Map<string, number>();
+    state.transactions.forEach((t) =>
+      t.lines.forEach((l) => map.set(l.name, (map.get(l.name) ?? 0) + l.quantity)),
+    );
+    return [...map.entries()].sort((a, b) => b[1] - a[1]);
+  }, [state.transactions]);
+
+  const topCustomers = useMemo(() => {
+    const map = new Map<string, number>();
+    state.transactions.forEach((t) =>
+      map.set(t.customerName, (map.get(t.customerName) ?? 0) + t.total),
+    );
+    return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+  }, [state.transactions]);
+
+  const statusCount = useMemo(() => {
+    const map = new Map<string, number>();
+    state.transactions.forEach((t) => map.set(t.status, (map.get(t.status) ?? 0) + 1));
+    return [...map.entries()];
+  }, [state.transactions]);
+
+  const maxProduct = Math.max(1, ...byProduct.map(([, v]) => v));
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <StatCard
+          label="Total Transaksi"
+          value={`${state.transactions.length}`}
+          note="Semua status"
+        />
+        <StatCard
+          label="Pendapatan Disetujui"
+          value={formatRupiah(totalRevenue)}
+          note="Pembayaran disetujui"
+        />
+        <StatCard
+          label="Voucher Aktif"
+          value={`${state.vouchers.filter((v) => v.active).length}`}
+          note="Siap dipakai"
+        />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="border border-border bg-card p-4">
+          <p className="text-sm font-semibold">Utilisasi Unit (Unit Tersewa)</p>
+          <div className="mt-3 space-y-2">
+            {byProduct.length === 0 && (
+              <p className="text-xs text-muted-foreground">Belum ada data.</p>
+            )}
+            {byProduct.map(([name, value]) => (
+              <div key={name}>
+                <div className="flex justify-between text-[10px]">
+                  <span className="truncate pr-2">{name}</span>
+                  <span>{value}</span>
+                </div>
+                <div className="mt-0.5 h-2 w-full bg-surface-soft">
+                  <div
+                    className="h-2 bg-gold"
+                    style={{ width: `${(value / maxProduct) * 100}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="border border-border bg-card p-4">
+          <p className="text-sm font-semibold">Pelanggan Teraktif</p>
+          <div className="mt-3 space-y-2">
+            {topCustomers.length === 0 && (
+              <p className="text-xs text-muted-foreground">Belum ada data.</p>
+            )}
+            {topCustomers.map(([name, value]) => (
+              <div key={name} className="flex justify-between text-[11px]">
+                <span>{name}</span>
+                <span className="font-semibold">{formatRupiah(value)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="border border-border bg-card p-4">
+        <p className="text-sm font-semibold">Status Transaksi</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {statusCount.length === 0 && (
+            <p className="text-xs text-muted-foreground">Belum ada data.</p>
+          )}
+          {statusCount.map(([status, count]) => (
+            <span
+              key={status}
+              className="inline-flex items-center gap-2 border border-border px-3 py-1 text-[11px]"
+            >
+              {status} <strong>{count}</strong>
+            </span>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

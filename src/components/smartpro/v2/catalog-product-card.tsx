@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Star, Plus, Minus, BookOpen, X, Wrench } from "lucide-react";
+import { Star, Plus, Minus, BookOpen, X, Wrench, Heart } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +18,7 @@ import {
 } from "@/lib/smartpro-data";
 import { formatRupiah } from "@/lib/smartpro-format";
 import { useStore } from "@/lib/smartpro-store";
+import { AvailabilityCalendar } from "./availability-calendar";
 
 function BestSellerBadge() {
   return (
@@ -44,14 +45,27 @@ export function CatalogProductCard({
   product,
   startDate,
   endDate,
+  onSelectRange,
+  onRequireLogin,
 }: {
   product: Product;
   startDate: string;
   endDate: string;
+  onSelectRange?: (start: string, end: string) => void;
+  onRequireLogin?: () => void;
 }) {
-  const { state, dispatch } = useStore();
+  const { state, currentUser, dispatch } = useStore();
   const [detailOpen, setDetailOpen] = useState(false);
   const [duration, setDuration] = useState<RentalDuration>(product.active12h ? "12h" : "24h");
+
+  const wished = Boolean(currentUser?.wishlist.includes(product.id));
+  const toggleWishlist = () => {
+    if (!currentUser) {
+      onRequireLogin?.();
+      return;
+    }
+    dispatch({ type: "toggleWishlist", userId: currentUser.id, productId: product.id });
+  };
 
   const available = getAvailableUnits(product, startDate, endDate);
   const maintenance = product.serials.filter((s) => s.status === "MAINTENANCE").length;
@@ -85,7 +99,7 @@ export function CatalogProductCard({
 
   return (
     <>
-      <article className="tag-card flex h-full flex-col">
+      <article className="tag-card relative flex h-full flex-col">
         <button
           type="button"
           onClick={() => setDetailOpen(true)}
@@ -124,6 +138,19 @@ export function CatalogProductCard({
               </span>
             )}
           </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={toggleWishlist}
+          aria-label={
+            wished ? `Hapus ${product.name} dari wishlist` : `Simpan ${product.name} ke wishlist`
+          }
+          className="absolute right-3 top-3 z-[3] grid size-9 place-items-center rounded-full border border-border bg-card/95 backdrop-blur"
+        >
+          <Heart
+            className={`size-4 ${wished ? "fill-alert text-alert" : "text-muted-foreground"}`}
+          />
         </button>
 
         <div className="flex flex-1 flex-col px-1 pb-1 pt-4">
@@ -211,6 +238,21 @@ export function CatalogProductCard({
                 </p>
               </div>
             </div>
+          </div>
+
+          <div>
+            <p className="mb-2 text-[10px] font-semibold uppercase text-muted-foreground">
+              Kalender ketersediaan
+            </p>
+            <AvailabilityCalendar
+              product={product}
+              startDate={startDate}
+              endDate={endDate}
+              onSelectRange={(s, e) => onSelectRange?.(s, e)}
+            />
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              Klik dua tanggal untuk memilih rentang sewa.
+            </p>
           </div>
 
           <div className="space-y-3 text-xs">
