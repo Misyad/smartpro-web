@@ -19,6 +19,7 @@ import {
 import { formatRupiah } from "@/lib/smartpro-format";
 import { useStore } from "@/lib/smartpro-store";
 import { AvailabilityCalendar } from "./availability-calendar";
+import { MOCK_START as mockStart, MOCK_END as mockEnd } from "@/lib/smartpro-data";
 
 function BestSellerBadge() {
   return (
@@ -67,7 +68,12 @@ export function CatalogProductCard({
     dispatch({ type: "toggleWishlist", userId: currentUser.id, productId: product.id });
   };
 
-  const available = getAvailableUnits(product, startDate, endDate);
+  // startDate/endDate come from todayISO(), which resolves per environment.
+  // When the server renders a day earlier than the browser, the booking overlap
+  // window differs and this counter would hydrate with a different number (#418).
+  const minimumAvailable = getAvailableUnits(product, mockStart, mockEnd);
+  const liveAvailable = getAvailableUnits(product, startDate, endDate);
+  const available = Math.min(liveAvailable, minimumAvailable);
   const maintenance = product.serials.filter((s) => s.status === "MAINTENANCE").length;
   const showDuration = duration === "12h" ? product.active12h : product.active24h;
   const effectiveDuration: RentalDuration = showDuration

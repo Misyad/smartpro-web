@@ -10,10 +10,17 @@ import {
   type Voucher,
 } from "@/lib/smartpro-data";
 
+// Seed data is serialized into the SSR stream and re-rendered on the client, so
+// every value must be byte-identical across both passes. A relative anchor is
+// captured once at module load; if the server and the client resolve it at
+// different moments the rendered text differs and React raises #418.
+// Freezing the anchor to a fixed date keeps SSR and hydration in agreement.
+const SEED_EPOCH = Date.UTC(2026, 10, 23, 10, 0, 0, 0);
+
 const iso = (daysFromNow: number, hour = 10): string => {
-  const d = new Date();
-  d.setDate(d.getDate() + daysFromNow);
-  d.setHours(hour, 0, 0, 0);
+  const d = new Date(SEED_EPOCH);
+  d.setUTCDate(d.getUTCDate() + daysFromNow);
+  d.setUTCHours(hour, 0, 0, 0);
   return d.toISOString();
 };
 

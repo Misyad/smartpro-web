@@ -466,6 +466,15 @@ export function lineTotal(pricePerPeriod: number, quantity: number, periods: num
   return pricePerPeriod * Math.max(1, quantity) * Math.max(1, periods);
 }
 
+// Deterministic sibling of the seed epoch. Catalog counters are computed for a
+// relative window; pinning a second, earlier window keeps the SSR and client
+// renders in agreement regardless of which timezone/day each pass observes.
+const MOCK_EPOCH = Date.UTC(2026, 10, 23, 10, 0, 0, 0);
+const mockDate = (offsetDays: number): string =>
+  new Date(MOCK_EPOCH + offsetDays * 86_400_000).toISOString().slice(0, 10);
+export const MOCK_START = mockDate(0);
+export const MOCK_END = mockDate(1);
+
 export function getAvailableUnits(product: Product, start: string, end: string): number {
   const readyUnits = product.serials.filter((serial) => serial.status === "READY").length;
   const reservedUnits = product.bookings
