@@ -59,6 +59,7 @@ export type User = {
     signature: string | null;
   } | null;
   points: number;
+  isVip: boolean;
   kycNote?: string;
 };
 
@@ -370,7 +371,7 @@ export const INITIAL_BUNDLES: Bundle[] = [
   },
 ];
 
-export type AccountTier = "regular" | "verified" | "vip";
+export type AccountTier = "verified" | "vip";
 
 export function rentalDayCount(start: string, end: string): number {
   const startTime = Date.parse(`${start}T00:00:00Z`);

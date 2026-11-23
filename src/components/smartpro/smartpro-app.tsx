@@ -1,12 +1,12 @@
-import { useMemo, useState } from "react";
-import { ShoppingBag, Search, LogOut, Star, LayoutDashboard, Store } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ShoppingBag, Search, LogOut, LogIn, Star, LayoutDashboard, Store } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BrandMark } from "@/components/smartpro/product-card";
 import { useStore } from "@/lib/smartpro-store";
 import { formatRupiah, todayISO, addDaysISO } from "@/lib/smartpro-format";
-import { getBundleAvailability, getAvailableUnits } from "@/lib/smartpro-data";
+import { getBundleAvailability, getAvailableUnits, type User } from "@/lib/smartpro-data";
 
 import { AuthScreen } from "./v2/auth-screen";
 import { KycScreen } from "./v2/kyc-screen";
@@ -31,6 +31,8 @@ export function SmartProApp() {
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [quoteOpen, setQuoteOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [pendingCheckout, setPendingCheckout] = useState(false);
   const [notice, setNotice] = useState("");
 
   const notify = (msg: string) => {
@@ -51,12 +53,27 @@ export function SmartProApp() {
     [state.products, category, search, bestOnly],
   );
 
-  if (!currentUser) return <AuthScreen />;
+  // After a successful login, resume a pending checkout if the user is verified.
+  useEffect(() => {
+    if (!pendingCheckout || !currentUser) return;
+    if (currentUser.kycStatus === "Verified") {
+      setPendingCheckout(false);
+      setAuthOpen(false);
+      setCartOpen(false);
+      setCheckoutOpen(true);
+    }
+  }, [currentUser, pendingCheckout]);
 
-  const isAdmin = currentUser.role === "admin";
+  const isAdmin = currentUser?.role === "admin";
   const cartCount = state.cart.reduce((s, l) => s + l.quantity, 0);
 
   const startCheckout = () => {
+    if (!currentUser) {
+      setCartOpen(false);
+      setPendingCheckout(true);
+      setAuthOpen(true);
+      return;
+    }
     if (currentUser.kycStatus !== "Verified") {
       notify("Lengkapi verifikasi KYC sebelum checkout.");
       setView("rentals");
@@ -68,7 +85,7 @@ export function SmartProApp() {
   };
 
   return (
-    <div className="smartpro-app min-h-screen bg-background text-foreground">
+    <div className="smartpro-app flex min-h-screen flex-col bg-background text-foreground">
       <header className="sticky top-0 z-40 border-b border-border/80 bg-card/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2.5">
@@ -101,7 +118,7 @@ export function SmartProApp() {
                   <LayoutDashboard className="size-3.5" /> Dashboard Admin
                 </Button>
               </>
-            ) : (
+            ) : currentUser ? (
               <>
                 <Button
                   variant={view === "catalog" ? "default" : "ghost"}
@@ -120,26 +137,40 @@ export function SmartProApp() {
                   <ShoppingBag className="size-3.5" /> Sewa Saya
                 </Button>
               </>
+            ) : (
+              <span className="px-3 text-[11px] font-semibold text-muted-foreground">
+                Katalog Sewa
+              </span>
             )}
           </div>
 
           <div className="ml-auto flex items-center gap-2 sm:order-3 sm:ml-0">
-            <div className="hidden text-right sm:block">
-              <p className="text-[10px] font-semibold">{currentUser.name}</p>
-              <p className="text-[9px] text-muted-foreground">
-                {isAdmin ? "Admin" : currentUser.kycStatus}
-              </p>
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-9 rounded-full px-3 text-xs"
-              onClick={() => dispatch({ type: "logout" })}
-              aria-label="Keluar"
-            >
-              <LogOut className="size-3.5" />
-            </Button>
-            {view === "catalog" && !isAdmin && (
+            {currentUser ? (
+              <>
+                <div className="hidden text-right sm:block">
+                  <p className="text-[10px] font-semibold">{currentUser.name}</p>
+                  <p className="text-[9px] text-muted-foreground">{accountLabel(currentUser)}</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-9 rounded-full px-3 text-xs"
+                  onClick={() => dispatch({ type: "logout" })}
+                  aria-label="Keluar"
+                >
+                  <LogOut className="size-3.5" />
+                </Button>
+              </>
+            ) : (
+              <Button
+                size="sm"
+                className="h-9 rounded-full px-4 text-xs"
+                onClick={() => setAuthOpen(true)}
+              >
+                <LogIn className="size-3.5" /> Masuk
+              </Button>
+            )}
+            {!isAdmin && (
               <Button
                 size="sm"
                 className="h-9 rounded-full px-3 text-xs"
@@ -158,10 +189,10 @@ export function SmartProApp() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 pb-16 pt-6 sm:px-6 lg:px-8">
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 pb-16 pt-6 sm:px-6 lg:px-8">
         {view === "admin" && isAdmin && <AdminDashboard />}
 
-        {view === "rentals" && !isAdmin && (
+        {view === "rentals" && currentUser && !isAdmin && (
           <div className="space-y-4">
             {currentUser.kycStatus !== "Verified" && <KycScreen />}
             <CustomerRentals />
@@ -345,6 +376,21 @@ export function SmartProApp() {
       />
       <CheckoutModal open={checkoutOpen} onOpenChange={setCheckoutOpen} />
       <QuotationModal open={quoteOpen} onOpenChange={setQuoteOpen} notify={notify} />
+
+      {authOpen && !currentUser && (
+        <div className="fixed inset-0 z-[90] overflow-y-auto bg-background/80 backdrop-blur-sm">
+          <AuthScreen onClose={() => setAuthOpen(false)} />
+        </div>
+      )}
     </div>
   );
+}
+
+function accountLabel(user: User): string {
+  if (user.role === "admin") return "Admin";
+  if (user.isVip) return "Mitra VIP";
+  if (user.kycStatus === "Verified") return "Verified";
+  if (user.kycStatus === "Menunggu") return "Menunggu Approval Admin";
+  if (user.kycStatus === "Ditolak") return "Verifikasi Ditolak";
+  return "Belum Verifikasi";
 }

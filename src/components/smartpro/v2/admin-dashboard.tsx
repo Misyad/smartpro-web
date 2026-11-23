@@ -669,41 +669,66 @@ function SettingsPanel() {
 }
 
 function Customers() {
-  const { state } = useStore();
+  const { state, dispatch } = useStore();
   return (
     <div className="space-y-2">
       {state.users
         .filter((u) => u.role === "pelanggan")
-        .map((u) => (
-          <div
-            key={u.id}
-            className="flex flex-wrap items-center justify-between gap-2 border border-border bg-card p-3"
-          >
-            <div>
-              <p className="text-xs font-semibold">
-                {u.name} <span className="text-muted-foreground">({u.username})</span>
-              </p>
-              <p className="text-[10px] text-muted-foreground">
-                {u.phone} - {u.points} poin
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <StatusPill status={u.kycStatus} />
-              <Button asChild size="sm" variant="outline" className="h-9 rounded-full text-[10px]">
-                <a
-                  href={buildWhatsappLink(
-                    u.phone,
-                    `Halo ${u.name}, terima kasih telah menyewa di SMartPro.`,
+        .map((u) => {
+          const tier = u.isVip ? "Mitra VIP" : u.kycStatus === "Verified" ? "Verified" : null;
+          return (
+            <div
+              key={u.id}
+              className="flex flex-wrap items-center justify-between gap-2 border border-border bg-card p-3"
+            >
+              <div>
+                <p className="text-xs font-semibold">
+                  {u.name} <span className="text-muted-foreground">({u.username})</span>
+                </p>
+                <p className="text-[10px] text-muted-foreground">
+                  {u.phone} - {u.points} poin
+                </p>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  <StatusPill status={u.kycStatus} />
+                  {u.isVip && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-gold/40 bg-amber-soft px-2.5 py-1 text-[10px] font-semibold text-gold-ink">
+                      <Star className="size-3 fill-current" /> Mitra VIP
+                    </span>
                   )}
-                  target="_blank"
-                  rel="noreferrer"
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant={u.isVip ? "secondary" : "outline"}
+                  className="h-9 rounded-full text-[10px]"
+                  disabled={u.isVip ? false : u.kycStatus !== "Verified"}
+                  title={u.kycStatus !== "Verified" ? "Verifikasi KYC dulu" : undefined}
+                  onClick={() => dispatch({ type: "setVip", userId: u.id, isVip: !u.isVip })}
                 >
-                  <Phone className="size-3.5" /> WA
-                </a>
-              </Button>
+                  <Star className="size-3.5" /> {u.isVip ? "Cabut VIP" : "Jadikan VIP"}
+                </Button>
+                <Button
+                  asChild
+                  size="sm"
+                  variant="outline"
+                  className="h-9 rounded-full text-[10px]"
+                >
+                  <a
+                    href={buildWhatsappLink(
+                      u.phone,
+                      `Halo ${u.name}, terima kasih telah menyewa di SMartPro.`,
+                    )}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <Phone className="size-3.5" /> WA
+                  </a>
+                </Button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
     </div>
   );
 }

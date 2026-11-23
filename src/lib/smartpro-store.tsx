@@ -32,7 +32,7 @@ import {
   SEED_USERS,
 } from "@/lib/smartpro-seed";
 
-const STORAGE_KEY = "smartpro-state-v3";
+const STORAGE_KEY = "smartpro-state-v4";
 
 export type CartLine = {
   key: string;
@@ -76,6 +76,7 @@ export const INITIAL_USERS: User[] = [
     kycStatus: "Verified",
     kyc: null,
     points: 0,
+    isVip: false,
   },
   {
     id: "u-pelanggan",
@@ -96,6 +97,7 @@ export const INITIAL_USERS: User[] = [
       signature: null,
     },
     points: 320,
+    isVip: false,
   },
   {
     id: "u-baru",
@@ -107,6 +109,7 @@ export const INITIAL_USERS: User[] = [
     kycStatus: "Belum",
     kyc: null,
     points: 0,
+    isVip: false,
   },
   ...SEED_USERS,
 ];
@@ -131,6 +134,7 @@ type Action =
   | { type: "register"; user: User }
   | { type: "updateUser"; userId: string; patch: Partial<User> }
   | { type: "setKycStatus"; userId: string; status: User["kycStatus"]; note?: string }
+  | { type: "setVip"; userId: string; isVip: boolean }
   | { type: "setProducts"; products: Product[] }
   | { type: "addProduct"; product: Product }
   | { type: "updateProduct"; productId: string; patch: Partial<Product> }
@@ -178,6 +182,11 @@ function reducer(state: AppState, action: Action): AppState {
         users: state.users.map((u) =>
           u.id === action.userId ? { ...u, kycStatus: action.status, kycNote: action.note } : u,
         ),
+      };
+    case "setVip":
+      return {
+        ...state,
+        users: state.users.map((u) => (u.id === action.userId ? { ...u, isVip: action.isVip } : u)),
       };
     case "setProducts":
       return { ...state, products: action.products };

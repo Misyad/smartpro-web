@@ -39,6 +39,8 @@ export function KycScreen() {
 
   if (currentUser.kycStatus === "Verified") return null;
 
+  const rejected = currentUser.kycStatus === "Ditolak";
+
   const submit = () => {
     const problems: string[] = [];
     if (!form.namaKtp.trim()) problems.push("nama sesuai KTP");
@@ -77,6 +79,16 @@ export function KycScreen() {
         <p className="mt-1 text-xs text-muted-foreground">
           Semua pelanggan wajib terverifikasi sebelum bertransaksi penuh. Isi data sesuai KTP.
         </p>
+
+        {rejected && (
+          <p
+            role="alert"
+            className="mt-3 border border-alert/30 bg-alert-soft p-2.5 text-[11px] font-semibold text-alert"
+          >
+            Verifikasi sebelumnya ditolak{currentUser.kycNote ? `: ${currentUser.kycNote}` : "."}{" "}
+            Perbaiki data lalu kirim ulang.
+          </p>
+        )}
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <Field label="Nama sesuai KTP">
@@ -144,7 +156,8 @@ export function KycScreen() {
         )}
 
         <Button className="mt-4 w-full rounded-full" onClick={submit}>
-          <Send className="size-4" /> Kirim untuk verifikasi
+          <Send className="size-4" />{" "}
+          {rejected ? "Kirim ulang untuk verifikasi" : "Kirim untuk verifikasi"}
         </Button>
       </div>
     </div>

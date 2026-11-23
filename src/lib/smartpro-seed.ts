@@ -48,6 +48,7 @@ export const SEED_USERS: User[] = [
       signature: null,
     },
     points: 120,
+    isVip: false,
   },
   {
     id: "u-salsa",
@@ -68,6 +69,7 @@ export const SEED_USERS: User[] = [
       signature: null,
     },
     points: 640,
+    isVip: true,
   },
 ];
 

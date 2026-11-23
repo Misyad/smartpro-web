@@ -8,7 +8,7 @@ import { DEMO_CREDENTIALS, useStore } from "@/lib/smartpro-store";
 import type { User } from "@/lib/smartpro-data";
 import { Field } from "./ui";
 
-export function AuthScreen() {
+export function AuthScreen({ onClose }: { onClose?: () => void }) {
   const { state, dispatch } = useStore();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [form, setForm] = useState({ username: "", password: "", name: "", phone: "" });
@@ -46,6 +46,7 @@ export function AuthScreen() {
       kycStatus: "Belum",
       kyc: null,
       points: 0,
+      isVip: false,
     };
     dispatch({ type: "register", user });
     dispatch({ type: "login", userId: user.id });
@@ -58,14 +59,34 @@ export function AuthScreen() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
+    <div
+      className={
+        onClose
+          ? "flex min-h-full items-center justify-center bg-background px-4 py-10"
+          : "flex min-h-screen items-center justify-center bg-background px-4 py-10"
+      }
+    >
       <div className="w-full max-w-md">
-        <div className="mb-6 flex items-center gap-3">
-          <BrandMark className="size-12" />
-          <div>
-            <p className="wordmark text-sm font-bold">SMartPro</p>
-            <p className="text-[10px] font-medium text-muted-foreground">Audio Video Production</p>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <BrandMark className="size-12" />
+            <div>
+              <p className="wordmark text-sm font-bold">SMartPro</p>
+              <p className="text-[10px] font-medium text-muted-foreground">
+                Audio Video Production
+              </p>
+            </div>
           </div>
+          {onClose && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 rounded-full text-xs"
+              onClick={onClose}
+            >
+              Kembali
+            </Button>
+          )}
         </div>
 
         <div className="border border-border bg-card p-6 shadow-tag">
@@ -162,11 +183,17 @@ export function AuthScreen() {
               <strong>{DEMO_CREDENTIALS.admin.password}</strong>
             </p>
             <p>
-              Pelanggan (verified): <strong>{DEMO_CREDENTIALS.pelanggan.username}</strong> /{" "}
+              Pelanggan (Verified): <strong>{DEMO_CREDENTIALS.pelanggan.username}</strong> /{" "}
               <strong>{DEMO_CREDENTIALS.pelanggan.password}</strong>
             </p>
             <p>
-              Pelanggan (belum KYC): <strong>nadia</strong> / <strong>nadia123</strong>
+              Mitra VIP: <strong>salsa</strong> / <strong>salsa123</strong>
+            </p>
+            <p>
+              Menunggu approval KYC: <strong>raka</strong> / <strong>raka123</strong>
+            </p>
+            <p>
+              Belum KYC: <strong>nadia</strong> / <strong>nadia123</strong>
             </p>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
