@@ -87,24 +87,24 @@ export function SmartProApp() {
   return (
     <div className="smartpro-app flex min-h-screen flex-col bg-background text-foreground">
       <header className="sticky top-0 z-40 border-b border-border/80 bg-card/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2.5">
-            <BrandMark className="size-10" />
-            <div>
-              <p className="wordmark text-[10px] font-bold leading-4">SMartPro</p>
-              <p className="text-[10px] font-medium text-muted-foreground">
+        <div className="mx-auto flex max-w-7xl flex-nowrap items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
+          <div className="flex shrink-0 items-center gap-2.5">
+            <BrandMark className="size-9 sm:size-10" />
+            <div className="hidden sm:block">
+              <p className="wordmark text-xs font-bold leading-4">SMartPro</p>
+              <p className="text-[11px] font-medium text-muted-foreground">
                 Audio Video Production
               </p>
             </div>
           </div>
 
-          <div className="order-3 flex w-full items-center rounded-full bg-surface-soft p-1 sm:order-2 sm:ml-auto sm:w-auto">
+          <div className="order-3 hidden w-full items-center rounded-full bg-surface-soft p-1 sm:order-2 sm:ml-auto sm:flex sm:w-auto">
             {isAdmin ? (
               <>
                 <Button
                   variant={view === "catalog" ? "default" : "ghost"}
                   size="sm"
-                  className="h-8 flex-1 rounded-full px-3 text-[11px] sm:flex-none"
+                  className="h-8 flex-1 rounded-full px-3 text-xs sm:flex-none"
                   onClick={() => setView("catalog")}
                 >
                   <Store className="size-3.5" /> Katalog
@@ -112,7 +112,7 @@ export function SmartProApp() {
                 <Button
                   variant={view === "admin" ? "default" : "ghost"}
                   size="sm"
-                  className="h-8 flex-1 rounded-full px-3 text-[11px] sm:flex-none"
+                  className="h-8 flex-1 rounded-full px-3 text-xs sm:flex-none"
                   onClick={() => setView("admin")}
                 >
                   <LayoutDashboard className="size-3.5" /> Dashboard Admin
@@ -123,7 +123,7 @@ export function SmartProApp() {
                 <Button
                   variant={view === "catalog" ? "default" : "ghost"}
                   size="sm"
-                  className="h-8 flex-1 rounded-full px-3 text-[11px] sm:flex-none"
+                  className="h-8 flex-1 rounded-full px-3 text-xs sm:flex-none"
                   onClick={() => setView("catalog")}
                 >
                   <Store className="size-3.5" /> Katalog
@@ -131,25 +131,23 @@ export function SmartProApp() {
                 <Button
                   variant={view === "rentals" ? "default" : "ghost"}
                   size="sm"
-                  className="h-8 flex-1 rounded-full px-3 text-[11px] sm:flex-none"
+                  className="h-8 flex-1 rounded-full px-3 text-xs sm:flex-none"
                   onClick={() => setView("rentals")}
                 >
                   <ShoppingBag className="size-3.5" /> Sewa Saya
                 </Button>
               </>
             ) : (
-              <span className="px-3 text-[11px] font-semibold text-muted-foreground">
-                Katalog Sewa
-              </span>
+              <span className="px-3 text-xs font-semibold text-muted-foreground">Katalog Sewa</span>
             )}
           </div>
 
-          <div className="ml-auto flex items-center gap-2 sm:order-3 sm:ml-0">
+          <div className="ml-auto flex shrink-0 items-center gap-2 sm:order-3 sm:ml-0">
             {currentUser ? (
               <>
                 <div className="hidden text-right sm:block">
-                  <p className="text-[10px] font-semibold">{currentUser.name}</p>
-                  <p className="text-[9px] text-muted-foreground">{accountLabel(currentUser)}</p>
+                  <p className="text-[11px] font-semibold">{currentUser.name}</p>
+                  <p className="text-[10px] text-muted-foreground">{accountLabel(currentUser)}</p>
                 </div>
                 <Button
                   size="sm"
@@ -266,7 +264,7 @@ export function SmartProApp() {
             {filteredProducts.length === 0 ? (
               <EmptyState title="Perangkat tidak ditemukan" note="Ubah kata kunci atau filter." />
             ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                 {filteredProducts.map((product) => (
                   <CatalogProductCard
                     key={product.id}

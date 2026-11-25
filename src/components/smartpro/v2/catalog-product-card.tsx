@@ -23,7 +23,7 @@ import { MOCK_START as mockStart, MOCK_END as mockEnd } from "@/lib/smartpro-dat
 
 function BestSellerBadge() {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-gold px-2.5 py-1 text-[9px] font-bold uppercase text-primary">
+    <span className="inline-flex items-center gap-1 rounded-full bg-gold px-2.5 py-1 text-[10px] font-bold uppercase text-primary">
       <Star className="size-3 fill-current" /> Best Seller
     </span>
   );
@@ -121,7 +121,7 @@ export function CatalogProductCard({
             <span className="wordmark text-xs font-semibold">
               {formatRupiah(periodPrice(product, effectiveDuration))}
             </span>
-            <span className="mt-1 text-[9px] font-bold tracking-[0.08em] text-muted-foreground">
+            <span className="mt-1 text-[10px] font-bold tracking-[0.08em] text-muted-foreground">
               / {effectiveDuration === "12h" ? "12 JAM" : "24 JAM"}
             </span>
           </div>
@@ -162,8 +162,10 @@ export function CatalogProductCard({
         <div className="flex flex-1 flex-col px-1 pb-1 pt-4">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <h3 className="wordmark text-[11px] font-semibold leading-5">{product.name}</h3>
-              <p className="mt-1 min-h-10 text-[10px] font-medium leading-[1.55] text-muted-foreground">
+              <h3 className="wordmark text-xs font-semibold leading-5 lg:text-[13px]">
+                {product.name}
+              </h3>
+              <p className="mt-1 min-h-10 text-[11px] font-medium leading-[1.55] text-muted-foreground">
                 {product.accessories}
               </p>
             </div>
@@ -195,7 +197,7 @@ export function CatalogProductCard({
           <DialogHeader className="text-left">
             <div className="flex items-center gap-2">
               {product.bestSeller && <BestSellerBadge />}
-              <span className="rounded-full bg-surface-soft px-2 py-0.5 text-[9px] font-semibold text-muted-foreground">
+              <span className="rounded-full bg-surface-soft px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
                 {product.category}
               </span>
             </div>
@@ -275,7 +277,7 @@ export function CatalogProductCard({
               <p className="mt-1 leading-relaxed text-muted-foreground">{product.accessories}</p>
             </div>
             <div className="border-l-2 border-gold bg-amber-soft px-3 py-2.5">
-              <p className="text-[9px] font-bold uppercase text-amber">Quick-start</p>
+              <p className="text-[10px] font-bold uppercase text-amber">Quick-start</p>
               <p className="mt-1 text-[11px] leading-relaxed text-amber">
                 Sambungkan perangkat, cek daya, lalu uji input sebelum produksi dimulai.
               </p>

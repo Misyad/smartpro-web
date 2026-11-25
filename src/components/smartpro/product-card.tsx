@@ -166,8 +166,10 @@ export function ProductCard({
       <div className="flex flex-1 flex-col px-1 pb-1 pt-4">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <h3 className="wordmark text-[11px] font-semibold leading-5">{product.name}</h3>
-            <p className="mt-1 min-h-10 text-[11px] font-medium leading-[1.55] text-muted-foreground">
+            <h3 className="wordmark text-xs font-semibold leading-5 lg:text-[13px]">
+              {product.name}
+            </h3>
+            <p className="mt-1 min-h-10 text-xs font-medium leading-[1.55] text-muted-foreground">
               {product.accessories}
             </p>
           </div>
