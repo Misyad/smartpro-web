@@ -192,7 +192,13 @@ export function SmartProApp() {
                   size="sm"
                   variant="outline"
                   className="h-9 rounded-full px-3 text-xs"
-                  onClick={() => dispatch({ type: "logout" })}
+                  onClick={async () => {
+                    // With a real backend the session lives in Supabase Auth, so
+                    // clearing only the local reducer would leave the user signed
+                    // in and bounce them straight back. Sign out of both.
+                    if (live.enabled) await live.signOut();
+                    dispatch({ type: "logout" });
+                  }}
                   aria-label="Keluar"
                 >
                   <LogOut className="size-3.5" />
