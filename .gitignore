@@ -1,3 +1,10 @@
+# Env files. .env.example is the only one that belongs in git; everything else
+# holds credentials. This repo targets a live Supabase project whose
+# service-role key bypasses RLS, so a committed .env is a full compromise.
+.env
+.env.*
+!.env.example
+
 # Logs
 logs
 *.log
