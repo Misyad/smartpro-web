@@ -64,9 +64,51 @@ export class PricingError extends Error {
   }
 }
 
-const VIP_DISCOUNT_RATE = 0.15;
 const DP_RATE = 0.3;
-const POINT_VALUE_IDR = 1000;
+
+/**
+ * Operational rates come from public.app_settings, not from constants.
+ * The live schema deliberately makes these configurable by an admin
+ * (vip_discount_percent, rupiah_per_poin, min_poin_tukar), so hardcoding them
+ * here would silently diverge from what the admin UI shows.
+ */
+type PricingConfig = {
+  vipDiscountRate: number;
+  pointValueIdr: number;
+  minPoinTukar: number;
+  minRupiahReward: number;
+  poinPerKelipatan: number;
+};
+
+const DEFAULT_CONFIG: PricingConfig = {
+  vipDiscountRate: 0.15,
+  pointValueIdr: 1000,
+  minPoinTukar: 0,
+  minRupiahReward: 0,
+  poinPerKelipatan: 1,
+};
+
+async function loadPricingConfig(db: ReturnType<typeof getServiceClient>): Promise<PricingConfig> {
+  const { data } = await db
+    .from("app_settings")
+    .select(
+      "vip_discount_percent, rupiah_per_poin, min_poin_tukar, " +
+        "min_rupiah_reward, poin_per_kelipatan",
+    )
+    .limit(1)
+    .maybeSingle();
+
+  if (!data) return DEFAULT_CONFIG;
+  const row = data as unknown as Record<string, number | null>;
+
+  return {
+    vipDiscountRate: (row["vip_discount_percent"] ?? 15) / 100,
+    pointValueIdr: row["rupiah_per_poin"] ?? 1000,
+    minPoinTukar: row["min_poin_tukar"] ?? 0,
+    minRupiahReward: row["min_rupiah_reward"] ?? 0,
+    poinPerKelipatan: row["poin_per_kelipatan"] ?? 1,
+  };
+}
 
 function daysBetween(startDate: string, endDate: string): number {
   const start = new Date(`${startDate}T00:00:00Z`);
@@ -140,9 +182,14 @@ export async function priceCheckout(
   const subtotal = lines.reduce((sum, l) => sum + l.lineTotal, 0);
 
   // Points redemption: capped by available balance and by the subtotal.
+  const cfg = await loadPricingConfig(db);
+
   const requestedPoints = Math.max(0, Math.floor(input.redeemPoints ?? 0));
-  const redeemablePoints = Math.min(requestedPoints, opts.availablePoints);
-  const pointsDiscount = Math.min(redeemablePoints * POINT_VALUE_IDR, subtotal);
+  const belowMinimum = requestedPoints > 0 && requestedPoints < cfg.minPoinTukar;
+  const redeemablePoints = belowMinimum
+    ? 0
+    : Math.min(requestedPoints, opts.availablePoints);
+  const pointsDiscount = Math.min(redeemablePoints * cfg.pointValueIdr, subtotal);
 
   // Voucher applies after points, only to what remains.
   let voucherDiscount = 0;
@@ -150,22 +197,43 @@ export async function priceCheckout(
   if (input.voucherCode) {
     const { data: voucher } = await db
       .from("vouchers")
-      .select("code, discount, active, expires_at")
+      .select("code, type, value, min_spend, active, expires_at")
       .eq("code", input.voucherCode)
       .maybeSingle();
 
+    const row = voucher as unknown as {
+      code: string;
+      type: string;
+      value: number;
+      min_spend: number | null;
+      active: boolean;
+      expires_at: string | null;
+    } | null;
+
     const usable =
-      voucher &&
-      voucher.active &&
-      (!voucher.expires_at || new Date(voucher.expires_at) > new Date());
+      row &&
+      row.active &&
+      (!row.expires_at || new Date(row.expires_at) > new Date());
 
     if (!usable) throw new PricingError("voucher is not valid");
-    voucherCode = voucher.code;
-    voucherDiscount = Math.min(voucher.discount, subtotal - pointsDiscount);
+
+    const base = subtotal - pointsDiscount;
+    const minSpend = row.min_spend ?? 0;
+    if (base < minSpend) {
+      throw new PricingError(
+        `voucher requires a minimum spend of ${minSpend}`,
+      );
+    }
+
+    // The live schema stores discounts as (type, value); handle both shapes
+    // instead of assuming a flat nominal amount.
+    const raw = row.type === "percent" ? Math.round((base * row.value) / 100) : row.value;
+    voucherCode = row.code;
+    voucherDiscount = Math.min(raw, base);
   }
 
   const afterPointsAndVoucher = subtotal - pointsDiscount - voucherDiscount;
-  const vipDiscount = opts.isVip ? Math.round(afterPointsAndVoucher * VIP_DISCOUNT_RATE) : 0;
+  const vipDiscount = opts.isVip ? Math.round(afterPointsAndVoucher * cfg.vipDiscountRate) : 0;
 
   const total = afterPointsAndVoucher - vipDiscount;
   if (total < 0) throw new PricingError("discount exceeds subtotal");
@@ -185,7 +253,7 @@ export async function priceCheckout(
     voucherDiscount,
     vipDiscount,
     total,
-    pointsRedeemed: pointsDiscount / POINT_VALUE_IDR,
+    pointsRedeemed: cfg.pointValueIdr > 0 ? pointsDiscount / cfg.pointValueIdr : 0,
     pointsEarned,
     dpAmount,
     remainingAmount,

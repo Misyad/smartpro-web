@@ -64,7 +64,7 @@ export type User = {
   kycNote?: string;
 };
 
-export type PaymentMethod = "transfer" | "cash";
+export type PaymentMethod = "transfer" | "cash" | "qris";
 export type PaymentStage = "DP" | "Pelunasan";
 export type ApprovalStatus = "Menunggu" | "Disetujui" | "Ditolak";
 
