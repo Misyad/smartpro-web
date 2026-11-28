@@ -162,15 +162,13 @@ describe("split payment collects the code exactly once", () => {
   });
 
   it("DP + pelunasan equals the payable amount exactly", () => {
-    const sum =
-      stageAmount("DP", total, code, dp) + stageAmount("Pelunasan", total, code, dp);
+    const sum = stageAmount("DP", total, code, dp) + stageAmount("Pelunasan", total, code, dp);
     expect(sum).toBe(payableAmount(total, code));
     expect(sum).toBe(1_200_388);
   });
 
   it("the code is never charged twice", () => {
-    const sum =
-      stageAmount("DP", total, code, dp) + stageAmount("Pelunasan", total, code, dp);
+    const sum = stageAmount("DP", total, code, dp) + stageAmount("Pelunasan", total, code, dp);
     // Charging payable for both stages would have produced total*2 + code*2
     expect(sum).not.toBe(2 * total + 2 * code);
     expect(sum - total).toBe(code);
@@ -179,8 +177,9 @@ describe("split payment collects the code exactly once", () => {
   it("a single full payment equals payable with no DP", () => {
     // dp_amount == total means nothing was paid up front
     expect(stageAmount("Pelunasan", total, code, total)).toBe(code);
-    expect(stageAmount("DP", total, code, total) + stageAmount("Pelunasan", total, code, total))
-      .toBe(payableAmount(total, code));
+    expect(
+      stageAmount("DP", total, code, total) + stageAmount("Pelunasan", total, code, total),
+    ).toBe(payableAmount(total, code));
   });
 
   it("never returns a negative final amount", () => {

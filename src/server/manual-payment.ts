@@ -213,8 +213,7 @@ export async function submitTransferProof(
   const payable = Number(txn.payable_amount);
   const dp = Number(txn.dp_amount);
 
-  const amount =
-    args.stage === "DP" ? dp : Math.max(0, payable - dp);
+  const amount = args.stage === "DP" ? dp : Math.max(0, payable - dp);
 
   if (amount <= 0) {
     throw new ManualPaymentError(`tidak ada tagihan untuk tahap ${args.stage}`);
@@ -249,11 +248,7 @@ export async function submitTransferProof(
     return { paymentId: existing.id };
   }
 
-  const { data: payment, error } = await db
-    .from("payments")
-    .insert(payload)
-    .select("id")
-    .single();
+  const { data: payment, error } = await db.from("payments").insert(payload).select("id").single();
 
   if (error || !payment) {
     throw new ManualPaymentError(`gagal menyimpan bukti: ${error?.message ?? "unknown"}`);
