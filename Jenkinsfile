@@ -47,6 +47,19 @@ pipeline {
       }
     }
 
+    // Validates every SQL migration against a throwaway Postgres. Never touches
+    // a real database: scripts/migrate.sh --check spins up postgres:17-alpine,
+    // applies the migrations with ON_ERROR_STOP, runs the seed twice to prove
+    // idempotency, asserts row counts, then destroys the container.
+    //
+    // Applying to a real project is a deliberate manual step (--apply with
+    // DATABASE_URL), not a CI side effect.
+    stage('Migration Check') {
+      steps {
+        sh 'chmod +x scripts/migrate.sh && ./scripts/migrate.sh --check'
+      }
+    }
+
     stage('Build Image') {
       steps {
         sh """
