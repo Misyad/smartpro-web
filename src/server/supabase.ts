@@ -23,27 +23,19 @@ let publicClient: SupabaseClient | undefined;
 
 export function getPublicClient(): SupabaseClient {
   if (!publicClient) {
-    publicClient = createClient(
-      requireEnv("SUPABASE_URL"),
-      requireEnv("SUPABASE_ANON_KEY"),
-      { auth: { persistSession: false, autoRefreshToken: false } },
-    );
+    publicClient = createClient(requireEnv("SUPABASE_URL"), requireEnv("SUPABASE_ANON_KEY"), {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
   }
   return publicClient;
 }
 
 /** Build a client scoped to an end user by forwarding their access token. */
 export function getServerClient(accessToken?: string): SupabaseClient {
-  return createClient(
-    requireEnv("SUPABASE_URL"),
-    requireEnv("SUPABASE_ANON_KEY"),
-    {
-      auth: { persistSession: false, autoRefreshToken: false },
-      ...(accessToken
-        ? { global: { headers: { Authorization: `Bearer ${accessToken}` } } }
-        : {}),
-    },
-  );
+  return createClient(requireEnv("SUPABASE_URL"), requireEnv("SUPABASE_ANON_KEY"), {
+    auth: { persistSession: false, autoRefreshToken: false },
+    ...(accessToken ? { global: { headers: { Authorization: `Bearer ${accessToken}` } } } : {}),
+  });
 }
 
 let serviceClient: SupabaseClient | undefined;

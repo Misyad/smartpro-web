@@ -29,7 +29,7 @@ async function expectedSignature(secret: string, timestamp: string, body: string
     .join("");
 }
 
-const SECRET="super-secret-webhook-key";
+const SECRET = "super-secret-webhook-key";
 const TS = "1733900000";
 const BODY = JSON.stringify({
   event: "payment.status_updated",
@@ -52,16 +52,16 @@ describe("verifyWebhookSignature", () => {
 
   it("accepts a correctly signed payload", async () => {
     const signature = await expectedSignature(SECRET, TS, BODY);
-    await expect(
-      verifyWebhookSignature({ rawBody: BODY, signature, timestamp: TS }),
-    ).resolves.toBe(true);
+    await expect(verifyWebhookSignature({ rawBody: BODY, signature, timestamp: TS })).resolves.toBe(
+      true,
+    );
   });
 
   it("accepts an uppercase hex signature", async () => {
     const signature = (await expectedSignature(SECRET, TS, BODY)).toUpperCase();
-    await expect(
-      verifyWebhookSignature({ rawBody: BODY, signature, timestamp: TS }),
-    ).resolves.toBe(true);
+    await expect(verifyWebhookSignature({ rawBody: BODY, signature, timestamp: TS })).resolves.toBe(
+      true,
+    );
   });
 
   it("rejects a tampered body", async () => {
@@ -81,9 +81,9 @@ describe("verifyWebhookSignature", () => {
 
   it("rejects a signature made with the wrong secret", async () => {
     const signature = await expectedSignature("wrong_secret", TS, BODY);
-    await expect(
-      verifyWebhookSignature({ rawBody: BODY, signature, timestamp: TS }),
-    ).resolves.toBe(false);
+    await expect(verifyWebhookSignature({ rawBody: BODY, signature, timestamp: TS })).resolves.toBe(
+      false,
+    );
   });
 
   it("rejects a missing signature", async () => {
@@ -102,16 +102,16 @@ describe("verifyWebhookSignature", () => {
   it("rejects when the secret is not configured", async () => {
     delete process.env["PAYMENKU_WEBHOOK_SECRET"];
     const signature = await expectedSignature(SECRET, TS, BODY);
-    await expect(
-      verifyWebhookSignature({ rawBody: BODY, signature, timestamp: TS }),
-    ).resolves.toBe(false);
+    await expect(verifyWebhookSignature({ rawBody: BODY, signature, timestamp: TS })).resolves.toBe(
+      false,
+    );
   });
 
   it("rejects a truncated signature without throwing", async () => {
     const signature = (await expectedSignature(SECRET, TS, BODY)).slice(0, 10);
-    await expect(
-      verifyWebhookSignature({ rawBody: BODY, signature, timestamp: TS }),
-    ).resolves.toBe(false);
+    await expect(verifyWebhookSignature({ rawBody: BODY, signature, timestamp: TS })).resolves.toBe(
+      false,
+    );
   });
 });
 

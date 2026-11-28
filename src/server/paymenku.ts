@@ -36,8 +36,7 @@ export type PaymenkuCreateResult =
   | { ok: false; error: string };
 
 export type PaymenkuStatusResult =
-  | { ok: true; status: string; paidAt: string | null; raw: unknown }
-  | { ok: false; error: string };
+  { ok: true; status: string; paidAt: string | null; raw: unknown } | { ok: false; error: string };
 
 function env(name: string): string {
   const value = process.env[name];
@@ -136,10 +135,9 @@ export async function createQrisPayment(
 /** Look up transaction status by trx_id or reference_id. */
 export async function checkStatus(orderId: string): Promise<PaymenkuStatusResult> {
   try {
-    const { status, body } = await callPaymenku(
-      `/check-status/${encodeURIComponent(orderId)}`,
-      { method: "GET" },
-    );
+    const { status, body } = await callPaymenku(`/check-status/${encodeURIComponent(orderId)}`, {
+      method: "GET",
+    });
     const payload = body as {
       status?: string;
       data?: { status?: string; paid_at?: string };
