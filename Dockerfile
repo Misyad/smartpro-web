@@ -16,7 +16,37 @@ RUN bun run test
 FROM deps AS build
 COPY . .
 ENV BUILD_TARGET=node
+
+# Vite inlines import.meta.env.VITE_* at COMPILE time, so these must be present
+# during the build, not at container start. Passing them only via `docker run
+# --env-file` is not enough: the client bundle would be compiled with the values
+# undefined and isBackendEnabled() would be false in the browser forever.
+#
+# They are declared as build args (not secrets) on purpose: anything VITE_*
+# prefixed ends up readable in the shipped JavaScript, so only the PUBLIC anon
+# key may go here. The service-role key must never be a build arg.
+ARG VITE_SUPABASE_URL=""
+ARG VITE_SUPABASE_ANON_KEY=""
+ENV VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+ENV VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
+
 RUN bun run build
+
+# Fail the build if the client bundle was compiled without a backend URL.
+# A silent miss here produces a site that serves live data but whose login and
+# cart silently fall back to demo mode — exactly the kind of failure that looks
+# healthy until someone tries to use it.
+RUN if [ -n "$VITE_SUPABASE_URL" ]; then \
+      REF=$(printf '%s' "$VITE_SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#'); \
+      if ! grep -rq "$REF" .output/public/assets/ 2>/dev/null; then \
+        echo "FATAL: VITE_SUPABASE_URL was set but the Supabase project ref '$REF'"; \
+        echo "       is not present in the client bundle. Vite did not inline it."; \
+        exit 1; \
+      fi; \
+      echo "Verified: client bundle contains Supabase ref '$REF'"; \
+    else \
+      echo "NOTE: VITE_SUPABASE_URL is empty - building in demo mode (no live backend)."; \
+    fi
 
 # --- Runtime stage: only what the Node server needs ---
 FROM node:22-alpine AS runtime

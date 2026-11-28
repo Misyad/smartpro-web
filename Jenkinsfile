@@ -66,11 +66,37 @@ pipeline {
     stage('Build Image') {
       steps {
         sh """
-          docker build \
-            --label "org.opencontainers.image.revision=${env.GIT_COMMIT}" \
-            --label "org.opencontainers.image.source=${env.GIT_URL}" \
-            -t ${IMAGE}:${IMAGE_TAG} \
-            -t ${IMAGE}:latest \
+          set -eu
+
+          # Vite inlines VITE_* at compile time, so the browser bundle needs these
+          # during `docker build`, not at `docker run`. Read them from the runtime
+          # env file so there is a single source of truth for the project URL.
+          #
+          # Only the PUBLIC anon key is passed as a build arg; it is readable in
+          # the shipped JavaScript by design. The service-role key stays out of
+          # the image and is injected at run time only.
+          VITE_URL=''
+          VITE_ANON=''
+          if [ -f '${RUNTIME_ENV_FILE}' ]; then
+            VITE_URL=\$(grep -E '^[[:space:]]*SUPABASE_URL=..*' '${RUNTIME_ENV_FILE}' | head -1 | cut -d= -f2-)
+            VITE_ANON=\$(grep -E '^[[:space:]]*SUPABASE_ANON_KEY=..*' '${RUNTIME_ENV_FILE}' | head -1 | cut -d= -f2-)
+          fi
+
+          if [ -z "\$VITE_URL" ] || [ -z "\$VITE_ANON" ]; then
+            echo "FATAL: SUPABASE_URL / SUPABASE_ANON_KEY missing from '${RUNTIME_ENV_FILE}'."
+            echo "       The client bundle would be built in demo mode."
+            exit 1
+          fi
+
+          echo "Building with client env from ${RUNTIME_ENV_FILE} (url length \${#VITE_URL})"
+
+          docker build \\
+            --build-arg VITE_SUPABASE_URL="\$VITE_URL" \\
+            --build-arg VITE_SUPABASE_ANON_KEY="\$VITE_ANON" \\
+            --label "org.opencontainers.image.revision=${env.GIT_COMMIT}" \\
+            --label "org.opencontainers.image.source=${env.GIT_URL}" \\
+            -t ${IMAGE}:${IMAGE_TAG} \\
+            -t ${IMAGE}:latest \\
             .
         """
       }
