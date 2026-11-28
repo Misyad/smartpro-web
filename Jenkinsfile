@@ -26,6 +26,9 @@ pipeline {
     // Jenkins runs in a bridge container: 127.0.0.1 is the Jenkins container
     // itself, not the CT104 host. Probe the host's LAN address instead.
     DEPLOY_PROBE_HOST = '192.168.1.60'
+    // Runtime secrets for the deployed container. Lives on the CT104 host with
+    // mode 600; see the "Verify Runtime Config" stage for why it is mandatory.
+    RUNTIME_ENV_FILE = '/root/smartpro.env'
   }
 
   stages {
@@ -96,6 +99,68 @@ pipeline {
       }
     }
 
+    // Fails the build when the runtime credentials are missing, instead of
+    // deploying a container that silently falls back to local demo data.
+    //
+    // The app reads the catalog from Supabase when SUPABASE_URL and anon key are
+    // present and falls back to seeded demo data when they are not. That fallback
+    // is correct for previews, but on production it means the site looks healthy
+    // (HTTP 200, real product cards) while serving stale demo rows. This stage
+    // turns that silent failure into a loud one.
+    //
+    // Only variable NAMES are printed. Values are never echoed: the service-role
+    // key bypasses RLS and must not leak into build logs.
+    stage('Verify Runtime Config') {
+      steps {
+        sh """
+          set -eu
+
+          ENV_FILE='${RUNTIME_ENV_FILE}'
+
+          if [ ! -f "\$ENV_FILE" ]; then
+            echo "FATAL: runtime env file not found: \$ENV_FILE"
+            echo ""
+            echo "The deployed container needs Supabase credentials. Create the file on"
+            echo "the CT104 host (mode 600) containing:"
+            echo "  SUPABASE_URL=..."
+            echo "  SUPABASE_ANON_KEY=..."
+            echo "  SUPABASE_SERVICE_ROLE_KEY=..."
+            echo "  APP_URL=https://smartpro-web.projecthasan.com"
+            echo ""
+            echo "Refusing to deploy without it: the app would start in demo mode."
+            exit 1
+          fi
+
+          # The env file holds secrets; refuse to use a world-readable one.
+          PERM=\$(stat -c '%a' "\$ENV_FILE")
+          case "\$PERM" in
+            600|400) : ;;
+            *)
+              echo "FATAL: \$ENV_FILE has mode \$PERM; must be 600 or 400."
+              echo "       A world-readable file exposes the service-role key."
+              exit 1
+              ;;
+          esac
+
+          missing=''
+          for name in SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY; do
+            # match only real assignments, not comments
+            if ! grep -qE "^[[:space:]]*\${name}=..*" "\$ENV_FILE"; then
+              missing="\$missing \$name"
+            fi
+          done
+
+          if [ -n "\$missing" ]; then
+            echo "FATAL: \$ENV_FILE is missing required variable(s):\$missing"
+            echo "Refusing to deploy: the app would start in demo mode."
+            exit 1
+          fi
+
+          echo "Runtime config OK (3 required variables present, mode \$PERM)"
+        """
+      }
+    }
+
     // Deploy runs on every build: Jenkins and the app share the CT104 host.
     // The old container is stopped FIRST so the port is free (no bind race),
     // then the new one starts and must pass its Docker HEALTHCHECK before we
@@ -110,8 +175,11 @@ pipeline {
           docker rm -f ${CONTAINER_NAME} 2>/dev/null || true
 
           # 2. Start the newly built image.
+          #    --env-file supplies the Supabase credentials verified in the
+          #    previous stage; without it the app serves demo data.
           docker run -d --name ${CONTAINER_NAME} \
             --restart unless-stopped \
+            --env-file '${RUNTIME_ENV_FILE}' \
             -p ${APP_PORT}:${APP_PORT} \
             ${IMAGE}:${IMAGE_TAG}
 
