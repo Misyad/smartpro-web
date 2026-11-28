@@ -26,8 +26,14 @@ pipeline {
     // Jenkins runs in a bridge container: 127.0.0.1 is the Jenkins container
     // itself, not the CT104 host. Probe the host's LAN address instead.
     DEPLOY_PROBE_HOST = '192.168.1.60'
-    // Runtime secrets for the deployed container. Lives on the CT104 host with
-    // mode 600; see the "Verify Runtime Config" stage for why it is mandatory.
+    // Runtime secrets. TWO copies are required because Jenkins runs in a
+    // container and cannot see the host filesystem:
+    //   BUILD_ENV_FILE   -> inside the Jenkins volume, read by the Build stage
+    //                       to inline VITE_* at compile time
+    //   RUNTIME_ENV_FILE -> on the CT104 host, read by the Deploy stage and
+    //                       passed to `docker run --env-file`
+    // Both are mode 600. Keep them in sync; scripts/place-jenkins-env.py does.
+    BUILD_ENV_FILE   = '/var/jenkins_home/.smartpro.env'
     RUNTIME_ENV_FILE = '/root/smartpro.env'
   }
 
@@ -77,18 +83,18 @@ pipeline {
           # the image and is injected at run time only.
           VITE_URL=''
           VITE_ANON=''
-          if [ -f '${RUNTIME_ENV_FILE}' ]; then
-            VITE_URL=\$(grep -E '^[[:space:]]*SUPABASE_URL=..*' '${RUNTIME_ENV_FILE}' | head -1 | cut -d= -f2-)
-            VITE_ANON=\$(grep -E '^[[:space:]]*SUPABASE_ANON_KEY=..*' '${RUNTIME_ENV_FILE}' | head -1 | cut -d= -f2-)
+          if [ -f '${BUILD_ENV_FILE}' ]; then
+            VITE_URL=\$(grep -E '^[[:space:]]*SUPABASE_URL=..*' '${BUILD_ENV_FILE}' | head -1 | cut -d= -f2-)
+            VITE_ANON=\$(grep -E '^[[:space:]]*SUPABASE_ANON_KEY=..*' '${BUILD_ENV_FILE}' | head -1 | cut -d= -f2-)
           fi
 
           if [ -z "\$VITE_URL" ] || [ -z "\$VITE_ANON" ]; then
-            echo "FATAL: SUPABASE_URL / SUPABASE_ANON_KEY missing from '${RUNTIME_ENV_FILE}'."
+            echo "FATAL: SUPABASE_URL / SUPABASE_ANON_KEY missing from '${BUILD_ENV_FILE}'."
             echo "       The client bundle would be built in demo mode."
             exit 1
           fi
 
-          echo "Building with client env from ${RUNTIME_ENV_FILE} (url length \${#VITE_URL})"
+          echo "Building with client env from ${BUILD_ENV_FILE} (url length \${#VITE_URL})"
 
           docker build \\
             --build-arg VITE_SUPABASE_URL="\$VITE_URL" \\
@@ -141,7 +147,12 @@ pipeline {
         sh """
           set -eu
 
-          ENV_FILE='${RUNTIME_ENV_FILE}'
+          # Jenkins runs in a container: the host copy at RUNTIME_ENV_FILE is
+          # invisible here, so this stage validates the BUILD copy it can read,
+          # and separately asserts the host copy exists where Deploy expects it.
+          # (If the host copy were missing, Deploy would fail after the old
+          # container was already removed - the worst moment to find out.)
+          ENV_FILE='${BUILD_ENV_FILE}'
 
           if [ ! -f "\$ENV_FILE" ]; then
             echo "FATAL: runtime env file not found: \$ENV_FILE"
@@ -183,6 +194,18 @@ pipeline {
           fi
 
           echo "Runtime config OK (3 required variables present, mode \$PERM)"
+
+          # Deploy passes this path to `docker run --env-file`, evaluated on the
+          # HOST. Verify it from the host's point of view (via the docker socket,
+          # which this container can reach) so a missing host copy fails here
+          # rather than mid-deploy, after the running container was removed.
+          if ! docker run --rm -v '${RUNTIME_ENV_FILE}:/probe:ro' alpine:3 \
+                 sh -c 'test -s /probe && grep -qE "^[[:space:]]*SUPABASE_URL=..*" /probe'; then
+            echo "FATAL: '${RUNTIME_ENV_FILE}' is missing or incomplete on the host."
+            echo "       Deploy would start the new container without credentials."
+            exit 1
+          fi
+          echo "Host env file verified at ${RUNTIME_ENV_FILE}"
         """
       }
     }
