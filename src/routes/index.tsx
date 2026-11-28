@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { SmartProApp } from "@/components/smartpro/smartpro-app";
+import { loadCatalog } from "@/lib/catalog.functions";
 
 // The home route ships no og:image, so serve-time hosting can inject the
 // project's social preview (explicit og:image or latest screenshot).
@@ -23,5 +24,9 @@ export const Route = createFileRoute("/")({
     ],
     links: [{ rel: "canonical", href: "/" }],
   }),
+  // Load the catalog on the server so the first paint already contains the
+  // products. Without this the page renders an empty shell and only fills in
+  // after hydration, which is invisible to crawlers and to users on slow links.
+  loader: () => loadCatalog(),
   component: SmartProApp,
 });

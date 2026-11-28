@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useLoaderData } from "@tanstack/react-router";
 import { ShoppingBag, Search, LogOut, LogIn, Star, LayoutDashboard, Store } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -25,23 +26,37 @@ export function SmartProApp() {
   const { state: localState, currentUser: localUser, dispatch } = useStore();
   const live = useLiveData();
 
-  // Prefer live Supabase data when the backend is configured; otherwise fall
-  // back to the local demo reducer so previews without secrets still render.
-  // Cart and UI-only state always come from the local reducer.
-  const state = useMemo(
-    () => ({
+  // The route loader fetched the catalog on the server, so the first render
+  // already contains products. `useLiveData` keeps them fresh after hydration.
+  const initial = useLoaderData({ from: "/" }) as
+    { products?: unknown[]; bundles?: unknown[]; vouchers?: unknown[] } | undefined;
+
+  // Priority: live query result -> SSR loader payload -> local demo data.
+  const state = useMemo(() => {
+    const loaderProducts = (initial?.products ?? []) as typeof localState.products;
+    const loaderBundles = (initial?.bundles ?? []) as typeof localState.bundles;
+    const loaderVouchers = (initial?.vouchers ?? []) as typeof localState.vouchers;
+
+    return {
       ...localState,
-      ...(live.enabled && !live.loading
-        ? {
-            products: live.products.length ? live.products : localState.products,
-            bundles: live.bundles.length ? live.bundles : localState.bundles,
-            vouchers: live.vouchers.length ? live.vouchers : localState.vouchers,
-            transactions: live.transactions.length ? live.transactions : localState.transactions,
-          }
-        : {}),
-    }),
-    [localState, live],
-  );
+      products: live.products.length
+        ? live.products
+        : loaderProducts.length
+          ? loaderProducts
+          : localState.products,
+      bundles: live.bundles.length
+        ? live.bundles
+        : loaderBundles.length
+          ? loaderBundles
+          : localState.bundles,
+      vouchers: live.vouchers.length
+        ? live.vouchers
+        : loaderVouchers.length
+          ? loaderVouchers
+          : localState.vouchers,
+      transactions: live.transactions.length ? live.transactions : localState.transactions,
+    };
+  }, [localState, live, initial]);
 
   const currentUser = live.enabled ? (live.user ?? null) : localUser;
   const [view, setView] = useState<"catalog" | "rentals" | "admin">("catalog");
