@@ -220,15 +220,44 @@ pipeline {
           set -eu
           echo "Deploying ${IMAGE}:${IMAGE_TAG} on port ${APP_PORT}"
 
+          # Credentials are passed as individual -e flags read from the env file,
+          # NOT with --env-file. Reason: the docker CLI runs inside the Jenkins
+          # container, so --env-file is resolved in the Jenkins namespace, not on
+          # the host. Build #18 removed the old container and then failed with
+          # 'open /root/smartpro.env: no such file', taking the site down.
+          # Reading the file in this shell and inlining the values removes the
+          # path dependency entirely.
+          #
+          # Only the keys the app needs are forwarded; nothing is echoed.
+          env_flags() {
+            local f="\$1" k v out=""
+            for k in SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY APP_URL; do
+              v=\$(grep -E "^[[:space:]]*\$k=..*" "\$f" | head -1 | cut -d= -f2-)
+              if [ -z "\$v" ]; then
+                echo "FATAL: \$k not found in \$f" >&2
+                return 1
+              fi
+              out="\$out -e \$k=\$v"
+            done
+            printf '%s' "\$out"
+          }
+
+          # Resolve secrets FIRST. Removing the old container before this check
+          # is what caused the #18 outage: the site was down and the new one
+          # could not start.
+          FLAGS=\$(env_flags '${BUILD_ENV_FILE}') || {
+            echo "Refusing to stop the running container: secrets unreadable."
+            exit 1
+          }
+
           # 1. Stop and remove the running container to free the port.
           docker rm -f ${CONTAINER_NAME} 2>/dev/null || true
 
-          # 2. Start the newly built image.
-          #    --env-file supplies the Supabase credentials verified in the
-          #    previous stage; without it the app serves demo data.
+          # 2. Start the newly built image with the resolved credentials.
+          #    shellcheck disable=SC2086  (word splitting is intended here)
           docker run -d --name ${CONTAINER_NAME} \
             --restart unless-stopped \
-            --env-file '${RUNTIME_ENV_FILE}' \
+            \$FLAGS \
             -p ${APP_PORT}:${APP_PORT} \
             ${IMAGE}:${IMAGE_TAG}
 
