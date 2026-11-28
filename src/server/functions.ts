@@ -186,9 +186,7 @@ export async function priceCheckout(
 
   const requestedPoints = Math.max(0, Math.floor(input.redeemPoints ?? 0));
   const belowMinimum = requestedPoints > 0 && requestedPoints < cfg.minPoinTukar;
-  const redeemablePoints = belowMinimum
-    ? 0
-    : Math.min(requestedPoints, opts.availablePoints);
+  const redeemablePoints = belowMinimum ? 0 : Math.min(requestedPoints, opts.availablePoints);
   const pointsDiscount = Math.min(redeemablePoints * cfg.pointValueIdr, subtotal);
 
   // Voucher applies after points, only to what remains.
@@ -210,19 +208,14 @@ export async function priceCheckout(
       expires_at: string | null;
     } | null;
 
-    const usable =
-      row &&
-      row.active &&
-      (!row.expires_at || new Date(row.expires_at) > new Date());
+    const usable = row && row.active && (!row.expires_at || new Date(row.expires_at) > new Date());
 
     if (!usable) throw new PricingError("voucher is not valid");
 
     const base = subtotal - pointsDiscount;
     const minSpend = row.min_spend ?? 0;
     if (base < minSpend) {
-      throw new PricingError(
-        `voucher requires a minimum spend of ${minSpend}`,
-      );
+      throw new PricingError(`voucher requires a minimum spend of ${minSpend}`);
     }
 
     // The live schema stores discounts as (type, value); handle both shapes
@@ -318,7 +311,7 @@ export async function createTransaction(
       points_earned: priced.pointsEarned,
       dp_amount: priced.dpAmount,
       remaining_amount: priced.remainingAmount,
-      status: "menunggu_pembayaran",
+      status: "Menunggu Pembayaran",
     })
     .select("id, code, total")
     .single();
@@ -383,7 +376,7 @@ export async function startQrisPayment(
     .select("id, paymenku_trx_id, qr_url, status")
     .eq("transaction_id", txn.id)
     .eq("stage", args.stage)
-    .eq("status", "menunggu")
+    .eq("status", "Menunggu")
     .maybeSingle();
 
   if (existing?.qr_url) {
@@ -496,14 +489,14 @@ export async function applyPaymentWebhook(payload: {
     return { ok: true, applied: false, reason: `status ${status} is not terminal-paid` };
   }
 
-  if (payment.status === "disetujui") {
+  if (payment.status === "Disetujui") {
     return { ok: true, applied: false, reason: "already approved" };
   }
 
   // Mark the payment settled.
   const { error: payError } = await db
     .from("payments")
-    .update({ status: "disetujui", paid_at: payload.paid_at ?? new Date().toISOString() })
+    .update({ status: "Disetujui", paid_at: payload.paid_at ?? new Date().toISOString() })
     .eq("id", payment.id);
   if (payError) return { ok: false, reason: `payment update failed: ${payError.message}` };
 
@@ -515,7 +508,7 @@ export async function applyPaymentWebhook(payload: {
     .maybeSingle();
 
   if (txn) {
-    const nextStatus = payment.stage === "dp" ? "dp_terbayar" : "lunas";
+    const nextStatus = payment.stage === "dp" ? "DP Terbayar" : "Lunas";
     await db.from("transactions").update({ status: nextStatus }).eq("id", txn.id);
 
     // Points: award earned, deduct redeemed. Only once, on final settlement.
@@ -544,7 +537,7 @@ export async function applyPaymentWebhook(payload: {
 // ---------------------------------------------------------------------------
 export async function approveKyc(
   request: Request,
-  args: { userId: string; decision: "disetujui" | "ditolak"; note?: string },
+  args: { userId: string; decision: "Disetujui" | "Ditolak"; note?: string },
 ): Promise<void> {
   const auth = await getUserFromRequest(request);
   if (!auth) throw new PricingError("not authenticated");
@@ -558,7 +551,7 @@ export async function approveKyc(
 
   if (admin?.role !== "admin") throw new PricingError("admin only");
 
-  const kycStatus = args.decision === "disetujui" ? "verified" : "ditolak";
+  const kycStatus = args.decision === "Disetujui" ? "Verified" : "Ditolak";
 
   const { error } = await db
     .from("profiles")
@@ -574,5 +567,5 @@ export async function approveKyc(
       reviewed_at: new Date().toISOString(),
     })
     .eq("user_id", args.userId)
-    .eq("status", "menunggu");
+    .eq("status", "Menunggu");
 }

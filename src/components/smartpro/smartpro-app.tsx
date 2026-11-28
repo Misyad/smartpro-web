@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BrandMark } from "@/components/smartpro/product-card";
 import { useStore } from "@/lib/smartpro-store";
+import { useLiveData } from "@/lib/smartpro-live";
 import { formatRupiah, todayISO, addDaysISO } from "@/lib/smartpro-format";
 import { getBundleAvailability, getAvailableUnits, type User } from "@/lib/smartpro-data";
 
@@ -21,7 +22,28 @@ import { EmptyState } from "./v2/ui";
 const CATEGORIES = ["Semua Alat", "Kamera", "Wireless Video", "Switcher & Live"] as const;
 
 export function SmartProApp() {
-  const { state, currentUser, dispatch } = useStore();
+  const { state: localState, currentUser: localUser, dispatch } = useStore();
+  const live = useLiveData();
+
+  // Prefer live Supabase data when the backend is configured; otherwise fall
+  // back to the local demo reducer so previews without secrets still render.
+  // Cart and UI-only state always come from the local reducer.
+  const state = useMemo(
+    () => ({
+      ...localState,
+      ...(live.enabled && !live.loading
+        ? {
+            products: live.products.length ? live.products : localState.products,
+            bundles: live.bundles.length ? live.bundles : localState.bundles,
+            vouchers: live.vouchers.length ? live.vouchers : localState.vouchers,
+            transactions: live.transactions.length ? live.transactions : localState.transactions,
+          }
+        : {}),
+    }),
+    [localState, live],
+  );
+
+  const currentUser = live.enabled ? (live.user ?? null) : localUser;
   const [view, setView] = useState<"catalog" | "rentals" | "admin">("catalog");
   const [category, setCategory] = useState<(typeof CATEGORIES)[number]>("Semua Alat");
   const [search, setSearch] = useState("");

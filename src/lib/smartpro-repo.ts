@@ -159,7 +159,12 @@ type VoucherRow = {
 // ---------------------------------------------------------------------------
 // Enum translation (Postgres -> app Title Case)
 // ---------------------------------------------------------------------------
+// Live enum `kyc_status` is Title Case.
 export const KYC_FROM_DB: Record<string, KycStatus> = {
+  Belum: "Belum",
+  Menunggu: "Menunggu",
+  Verified: "Verified",
+  Ditolak: "Ditolak",
   belum: "Belum",
   menunggu: "Menunggu",
   verified: "Verified",
@@ -167,15 +172,21 @@ export const KYC_FROM_DB: Record<string, KycStatus> = {
 };
 
 export const KYC_TO_DB: Record<KycStatus, string> = {
-  Belum: "belum",
-  Menunggu: "menunggu",
-  Verified: "verified",
-  Ditolak: "ditolak",
+  Belum: "Belum",
+  Menunggu: "Menunggu",
+  Verified: "Verified",
+  Ditolak: "Ditolak",
 };
 
+// Live enum `trx_status` already stores the display form.
 const TXN_STATUS_FROM_DB: Record<string, Transaction["status"]> = {
+  "Menunggu Pembayaran": "Menunggu Pembayaran",
+  "DP Terbayar": "DP Terbayar",
+  Lunas: "Lunas",
+  Selesai: "Selesai",
+  Dibatalkan: "Dibatalkan",
+  // tolerate snake_case from older rows
   menunggu_pembayaran: "Menunggu Pembayaran",
-  menunggu: "Menunggu Pembayaran",
   dp_terbayar: "DP Terbayar",
   lunas: "Lunas",
   selesai: "Selesai",
@@ -183,31 +194,40 @@ const TXN_STATUS_FROM_DB: Record<string, Transaction["status"]> = {
 };
 
 const PICKUP_FROM_DB: Record<string, Transaction["pickupStatus"]> = {
+  Belum: "Belum",
+  Diambil: "Diambil",
+  Dikembalikan: "Dikembalikan",
   belum: "Belum",
   diambil: "Diambil",
   dikembalikan: "Dikembalikan",
 };
 
 export const APPROVAL_FROM_DB: Record<string, ApprovalStatus> = {
+  Menunggu: "Menunggu",
+  Disetujui: "Disetujui",
+  Ditolak: "Ditolak",
   menunggu: "Menunggu",
   disetujui: "Disetujui",
   ditolak: "Ditolak",
 };
 
+// The live enum `product_cat` stores the display form directly:
+//   Kamera | Wireless Video | Switcher & Live
+// Lowercase variants are accepted defensively in case an older row predates it.
 const CATEGORY_FROM_DB: Record<string, ProductCategory> = {
-  kamera: "Kamera",
-  wireless_video: "Wireless Video",
-  switcher_live: "Switcher & Live",
-  // the live schema may store the display form already
   Kamera: "Kamera",
   "Wireless Video": "Wireless Video",
   "Switcher & Live": "Switcher & Live",
+  kamera: "Kamera",
+  wireless_video: "Wireless Video",
+  switcher_live: "Switcher & Live",
 };
 
+// Enum labels are the display form, so writing is an identity mapping.
 export const CATEGORY_TO_DB: Record<ProductCategory, string> = {
-  Kamera: "kamera",
-  "Wireless Video": "wireless_video",
-  "Switcher & Live": "switcher_live",
+  Kamera: "Kamera",
+  "Wireless Video": "Wireless Video",
+  "Switcher & Live": "Switcher & Live",
 };
 
 // ---------------------------------------------------------------------------
@@ -236,7 +256,7 @@ export function mapProduct(
       .filter((s) => s.product_id === row.id)
       .map((s) => ({
         code: s.code,
-        status: s.status === "ready" ? "READY" : "MAINTENANCE",
+        status: s.status === "READY" ? "READY" : "MAINTENANCE",
       })),
     bookings: bookings
       .filter((b) => b.product_id === row.id)
@@ -327,11 +347,7 @@ export async function fetchProducts(client: SupabaseClient): Promise<Product[]> 
   ]);
 
   return ((products ?? []) as unknown as ProductRow[]).map((p) =>
-    mapProduct(
-      p,
-      (serials ?? []) as SerialRow[],
-      (bookings ?? []) as BookingRow[],
-    ),
+    mapProduct(p, (serials ?? []) as SerialRow[], (bookings ?? []) as BookingRow[]),
   );
 }
 
@@ -374,28 +390,24 @@ export async function fetchVouchers(client: SupabaseClient): Promise<Voucher[]> 
 
   if (error) throw new Error(`fetchVouchers: ${error.message}`);
 
-  // The live schema models discounts as (type, value) rather than a flat
-  // amount. `nominal` maps to the app's discount field directly; `percent` is
-  // resolved later against the subtotal during checkout.
-  return ((data ?? []) as VoucherRow[]).map((v) => ({
+  // The app's Voucher type already matches the live schema exactly:
+  //   { id, code, type: "percent" | "fixed", value, minSpend, active, expiresAt }
+  // So no translation is needed beyond snake_case -> camelCase.
+  return ((data ?? []) as unknown as VoucherRow[]).map((v) => ({
     id: v.id,
     code: v.code,
-    discount: v.type === "nominal" ? v.value : 0,
-    active: v.active,
-    ...(v.expires_at ? { expiresAt: v.expires_at } : {}),
-    voucherType: v.type,
-    voucherValue: v.value,
+    type: v.type === "percent" ? ("percent" as const) : ("fixed" as const),
+    value: v.value,
     minSpend: v.min_spend ?? 0,
-  })) as unknown as Voucher[];
+    active: v.active,
+    expiresAt: v.expires_at ?? "",
+  }));
 }
 
 // ---------------------------------------------------------------------------
 // Profile / wishlist
 // ---------------------------------------------------------------------------
-export async function fetchProfile(
-  client: SupabaseClient,
-  userId: string,
-): Promise<User | null> {
+export async function fetchProfile(client: SupabaseClient, userId: string): Promise<User | null> {
   const { data, error } = await client
     .from("profiles")
     .select("id, username, name, role, phone, kyc_status, kyc_note, points, is_vip")
@@ -407,14 +419,8 @@ export async function fetchProfile(
   return mapProfileToUser(data as ProfileRow);
 }
 
-export async function fetchWishlist(
-  client: SupabaseClient,
-  userId: string,
-): Promise<string[]> {
-  const { data, error } = await client
-    .from("wishlists")
-    .select("product_id")
-    .eq("user_id", userId);
+export async function fetchWishlist(client: SupabaseClient, userId: string): Promise<string[]> {
+  const { data, error } = await client.from("wishlists").select("product_id").eq("user_id", userId);
   if (error) return [];
   return ((data ?? []) as Array<{ product_id: string }>).map((w) => w.product_id);
 }
@@ -426,10 +432,7 @@ export async function addWishlist(
 ): Promise<void> {
   const { error } = await client
     .from("wishlists")
-    .upsert(
-      { user_id: userId, product_id: productId },
-      { onConflict: "user_id,product_id" },
-    );
+    .upsert({ user_id: userId, product_id: productId }, { onConflict: "user_id,product_id" });
   if (error) throw new Error(`addWishlist: ${error.message}`);
 }
 
@@ -453,10 +456,7 @@ export async function fetchTransactions(
   client: SupabaseClient,
   userId?: string,
 ): Promise<Transaction[]> {
-  let query = client
-    .from("transactions")
-    .select("*")
-    .order("created_at", { ascending: false });
+  let query = client.from("transactions").select("*").order("created_at", { ascending: false });
   if (userId) query = query.eq("customer_id", userId);
 
   const { data, error } = await query;
@@ -468,7 +468,10 @@ export async function fetchTransactions(
   const { data: lines } = await client
     .from("transaction_lines")
     .select("id, transaction_id, name, duration, price, quantity, reward_points")
-    .in("transaction_id", txns.map((t) => t.id));
+    .in(
+      "transaction_id",
+      txns.map((t) => t.id),
+    );
 
   return txns.map((t) => mapTransaction(t, (lines ?? []) as unknown as TxnLineRow[]));
 }
@@ -502,9 +505,7 @@ export async function fetchPaymentsForTransaction(
   })) as unknown as PaymentRecord[];
 }
 
-export async function fetchReturnRequests(
-  client: SupabaseClient,
-): Promise<ReturnRequest[]> {
+export async function fetchReturnRequests(client: SupabaseClient): Promise<ReturnRequest[]> {
   const { data, error } = await client
     .from("return_requests")
     .select("*")
